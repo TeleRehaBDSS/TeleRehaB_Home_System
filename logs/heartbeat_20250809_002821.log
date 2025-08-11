@@ -1,0 +1,8 @@
+2025-08-09 00:28:21,351 [INFO] Starting Heartbeat Checker...
+2025-08-09 00:28:21,546 [INFO] Client marked ONLINE
+2025-08-09 00:28:21,869 [INFO] Connected to MQTT broker.emqx.io:1883
+2025-08-09 00:28:21,870 [INFO] Subscribing to: heartbeat/UOI/ping
+2025-08-09 00:29:51,546 [WARNING] ------------------------------------------------------------
+2025-08-09 00:29:51,546 [WARNING] CRITICAL: Heartbeat timeout (> 90s). Android app OFFLINE.
+2025-08-09 00:29:51,546 [WARNING] ------------------------------------------------------------
+2025-08-09 00:29:51,546 [INFO] Powering off system...

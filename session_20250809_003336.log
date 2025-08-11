@@ -1,0 +1,207 @@
+2025-08-09 00:33:36,770 - /home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/clinic_main.py:849: DeprecationWarning: Callback API version 1 is deprecated, update to latest version
+  client = mqtt.Client()
+2025-08-09 00:33:36,967 - Broadcasting broker IP: 192.168.2.16
+2025-08-09 00:33:36,968 - [1/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:33:37,228 - JWT Token:
+2025-08-09 00:33:37,228 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6InRlc3REb2N0b3IiLCJSb2xlIjoiZG9jdG9yIiwiVXNlcklkIjoiMjYiLCJuYmYiOjE3NTQ2ODg4MTYsImV4cCI6MTc1NDczMjAxNywiaXNzIjoiVGVsZXJlaGFiLWRldmVsb3AiLCJhdWQiOiJUZWxlcmVoYWItZGV2ZWxvcCJ9.kGDActiyJM4MKTVROHrWMOdbnDtNTkTFJ-8D3gQh-i4
+2025-08-09 00:33:37,512 - apiKey:
+2025-08-09 00:33:37,512 - j0oMeBtroHpvYrYGi7WhZV2yAQZynsFj2fukpgQr
+2025-08-09 00:33:37,516 - Connected to MQTT broker with result code 0
+2025-08-09 00:33:37,521 - Listening for UDP messages on port 10000...
+2025-08-09 00:33:37,659 - MQTT client initialized and connected to broker.
+2025-08-09 00:33:37,959 - Connected with result code 0
+2025-08-09 00:33:38,164 - MAC address posted successfully.
+2025-08-09 00:33:38,396 - Message Received -> STARTVC
+2025-08-09 00:33:38,696 - Message Received -> up
+2025-08-09 00:33:38,970 - [2/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:33:40,973 - [3/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:33:42,763 - Message Received -> STOP_RECORDING
+2025-08-09 00:33:42,975 - [4/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:33:42,977 - Received JSON message on exercise@UOI/demo: {'action': 'Connected', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:33:41', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:42,977 - Received message on exercise@UOI/demo: {'action': 'Connected', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:33:41', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:42,977 - App has connected.
+2025-08-09 00:33:44,171 - Waiting for app to connect...
+2025-08-09 00:33:44,171 - App connected, continuing...
+2025-08-09 00:33:44,978 - [5/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:33:46,173 - Published: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:33:46.173446', 'code': '', 'message': '', 'language': 'EN'} to exercise@UOI/demo
+2025-08-09 00:33:46,262 - Received JSON message on exercise@UOI/demo: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:33:46.173446', 'code': '', 'message': '', 'language': 'EN'}
+2025-08-09 00:33:46,262 - Received message on exercise@UOI/demo: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:33:46.173446', 'code': '', 'message': '', 'language': 'EN'}
+2025-08-09 00:33:46,481 - Received JSON message on exercise@UOI/demo: {'action': 'ACK', 'exercise': '/', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:33:45', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:46,481 - Received message on exercise@UOI/demo: {'action': 'ACK', 'exercise': '/', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:33:45', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:46,504 - Received JSON message on exercise@UOI/demo: {'action': 'FINISH', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:33:45', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:46,504 - Received message on exercise@UOI/demo: {'action': 'FINISH', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:33:45', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:46,674 - Language set to EN
+2025-08-09 00:33:46,674 - Running scenario...
+2025-08-09 00:33:46,980 - Broadcast complete.
+2025-08-09 00:33:47,608 - --- Daily Schedule --- original order
+2025-08-09 00:33:47,608 - 1
+2025-08-09 00:33:47,608 - Exercise 1 - Sit - Yaw
+2025-08-09 00:33:47,608 - 4
+2025-08-09 00:33:47,608 - Exercise 4 - Stand - Maintain Balance
+2025-08-09 00:33:47,608 - 43
+2025-08-09 00:33:47,608 - Exercise 43 - Overhead reach
+2025-08-09 00:33:47,608 - 9
+2025-08-09 00:33:47,608 - Exercise 9 - Walk - Yaw
+2025-08-09 00:33:47,608 - 19
+2025-08-09 00:33:47,608 - Exercise 19 - Lateral weight shifts
+2025-08-09 00:33:47,608 - 18
+2025-08-09 00:33:47,608 - Exercise 18 - Sit to Stand
+2025-08-09 00:33:47,608 - 17
+2025-08-09 00:33:47,608 - Exercise 17 - seated marching on the spot
+2025-08-09 00:33:47,608 - 16
+2025-08-09 00:33:47,608 - Exercise 16 - Heel raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:33:47,608 - 15
+2025-08-09 00:33:47,609 - Exercise 15 - Assisted toe raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:33:47,609 - 3
+2025-08-09 00:33:47,609 - Exercise 3 - Sit - Bend
+2025-08-09 00:33:47,609 - 2
+2025-08-09 00:33:47,609 - Exercise 2 - Sit - Pitch
+2025-08-09 00:33:47,609 - 12
+2025-08-09 00:33:47,609 - Stretch 2 - Seated lateral trunk flexion
+2025-08-09 00:33:47,609 - 14
+2025-08-09 00:33:47,609 - Exercise 14 - Seated trunk rotation
+2025-08-09 00:33:47,609 - 20
+2025-08-09 00:33:47,609 - Exercise 20 - Limits of stability (anteroposterior)
+2025-08-09 00:33:47,609 - 21
+2025-08-09 00:33:47,609 - Exercise 21 - Forward reach
+2025-08-09 00:33:47,609 - --- Daily Schedule --- reordered order
+2025-08-09 00:33:47,609 - 12
+2025-08-09 00:33:47,609 - Stretch 2 - Seated lateral trunk flexion
+2025-08-09 00:33:47,609 - 1
+2025-08-09 00:33:47,609 - Exercise 1 - Sit - Yaw
+2025-08-09 00:33:47,609 - 18
+2025-08-09 00:33:47,609 - Exercise 18 - Sit to Stand
+2025-08-09 00:33:47,609 - 17
+2025-08-09 00:33:47,609 - Exercise 17 - seated marching on the spot
+2025-08-09 00:33:47,609 - 16
+2025-08-09 00:33:47,609 - Exercise 16 - Heel raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:33:47,609 - 15
+2025-08-09 00:33:47,609 - Exercise 15 - Assisted toe raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:33:47,609 - 3
+2025-08-09 00:33:47,609 - Exercise 3 - Sit - Bend
+2025-08-09 00:33:47,609 - 2
+2025-08-09 00:33:47,609 - Exercise 2 - Sit - Pitch
+2025-08-09 00:33:47,609 - 14
+2025-08-09 00:33:47,609 - Exercise 14 - Seated trunk rotation
+2025-08-09 00:33:47,609 - 4
+2025-08-09 00:33:47,609 - Exercise 4 - Stand - Maintain Balance
+2025-08-09 00:33:47,609 - 43
+2025-08-09 00:33:47,609 - Exercise 43 - Overhead reach
+2025-08-09 00:33:47,609 - 19
+2025-08-09 00:33:47,609 - Exercise 19 - Lateral weight shifts
+2025-08-09 00:33:47,609 - 20
+2025-08-09 00:33:47,609 - Exercise 20 - Limits of stability (anteroposterior)
+2025-08-09 00:33:47,609 - 21
+2025-08-09 00:33:47,609 - Exercise 21 - Forward reach
+2025-08-09 00:33:47,609 - 9
+2025-08-09 00:33:47,609 - Exercise 9 - Walk - Yaw
+2025-08-09 00:33:47,609 - Processing Exercise ID: 12
+2025-08-09 00:33:47,609 - Published: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:33:47.609759', 'code': '', 'message': '', 'language': '/'} to exercise@UOI/demo
+2025-08-09 00:33:47,706 - Received JSON message on exercise@UOI/demo: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:33:47.609759', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:33:47,707 - Received message on exercise@UOI/demo: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:33:47.609759', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:33:48,017 - Received JSON message on exercise@UOI/demo: {'action': 'ACK', 'exercise': 'VC holobalance_stretching_2 P0', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:33:47', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:48,017 - Received message on exercise@UOI/demo: {'action': 'ACK', 'exercise': 'VC holobalance_stretching_2 P0', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:33:47', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:55,606 - Received JSON message on exercise@UOI/demo: {'action': 'DEMO_START', 'exercise': 'VC holobalance_stretching_2 P0', 'code': '/', 'timestamp': '2025-33-09 12:33:54', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:33:55,606 - Received message on exercise@UOI/demo: {'action': 'DEMO_START', 'exercise': 'VC holobalance_stretching_2 P0', 'code': '/', 'timestamp': '2025-33-09 12:33:54', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:34:39,010 - Received JSON message on exercise@UOI/demo: {'action': 'DEMO_END', 'exercise': 'VC holobalance_stretching_2 P0', 'code': '/', 'timestamp': '2025-34-09 12:34:38', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:34:39,010 - Received message on exercise@UOI/demo: {'action': 'DEMO_END', 'exercise': 'VC holobalance_stretching_2 P0', 'code': '/', 'timestamp': '2025-34-09 12:34:38', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:34:39,173 - Exercise demonstration for VC holobalance_stretching_2 P0 completed.
+2025-08-09 00:34:39,173 - --- Starting the exercise ---
+2025-08-09 00:34:39,381 - Message Received -> HEAD=FE:AC:84:C5:3D:E7-OFF,PELVIS=E2:5A:D0:3D:01:94-QUATERNIONS,LEFTFOOT=EF:0F:A9:3D:48:AA-OFF,RIGHTFOOT=E1:55:61:CB:91:61-OFF,exer_22
+2025-08-09 00:34:43,291 - Message Received -> START_RECORDING
+2025-08-09 00:34:43,377 - Received non-JSON message on polar@UOI: start
+2025-08-09 00:34:43,377 - Received message on polar@UOI: start
+2025-08-09 00:34:43,396 - MQTT client initialized and connected to broker.
+2025-08-09 00:34:43,396 - Waiting for 'STARTCOUNTING' message...
+2025-08-09 00:34:43,702 - Connected with result code 0
+2025-08-09 00:34:48,431 - MQTT client initialized and connected to broker.
+2025-08-09 00:34:48,443 - config_dict =
+2025-08-09 00:34:48,443 - {'PELVIS': ('E2:5A:D0:3D:01:94', 'QUATERNIONS')}
+2025-08-09 00:34:48,443 - ------------------------------------------
+2025-08-09 00:34:48,443 - exercise_code =
+2025-08-09 00:34:48,443 - exer_22
+2025-08-09 00:34:48,446 - expected_body_parts =
+2025-08-09 00:34:48,446 - {'PELVIS'}
+2025-08-09 00:34:48,842 - Connected with result code 0
+2025-08-09 00:35:48,447 - check data stream
+2025-08-09 00:35:48,447 - Published: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'} to exercise@UOI/msg
+2025-08-09 00:35:48,642 - Received JSON message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,642 - Received JSON message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,642 - Received message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,642 - Received message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,642 - Received JSON message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,642 - Received message on exercise@UOI/msg: {'action': 'SPEAK', 'exercise': '/', 'timestamp': '2025-08-09T00:35:48.447540', 'code': 'bph0082', 'message': '', 'language': '/'}
+2025-08-09 00:35:48,754 - Received JSON message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:48,754 - Received message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:48,761 - Received JSON message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:48,761 - Received JSON message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:48,761 - Received message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:48,761 - Received message on exercise@UOI/msg: {'action': 'ACK', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:48', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received JSON message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received JSON message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received JSON message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:35:50,997 - Received message on exercise@UOI/msg: {'action': 'FINISH', 'exercise': '/', 'code': 'bph0082', 'timestamp': '2025-35-09 12:35:50', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:36:06,666 - Closing socket
+2025-08-09 00:36:06,666 - Traceback (most recent call last):
+2025-08-09 00:36:06,666 - File "/home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/clinic_main.py", line 890, in <module>
+2025-08-09 00:36:06,666 - client.loop_forever()
+2025-08-09 00:36:06,666 - File "/home/vtsakan/.local/lib/python3.10/site-packages/paho/mqtt/client.py", line 2297, in loop_forever
+2025-08-09 00:36:06,666 - rc = self._loop(timeout)
+2025-08-09 00:36:06,667 - File "/home/vtsakan/.local/lib/python3.10/site-packages/paho/mqtt/client.py", line 1663, in _loop
+2025-08-09 00:36:06,667 - socklist = select.select(rlist, wlist, [], timeout)
+2025-08-09 00:36:06,667 - KeyboardInterrupt
+2025-08-09 00:36:06,673 - Process Process-6:
+2025-08-09 00:36:06,674 - Process Process-5:
+2025-08-09 00:36:06,675 - Traceback (most recent call last):
+2025-08-09 00:36:06,675 - File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+2025-08-09 00:36:06,675 - File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+2025-08-09 00:36:06,675 - File "/home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/UDPSERVER.py", line 47, in start_unicast_server
+    data, address = sock.recvfrom(1024)
+2025-08-09 00:36:06,675 - KeyboardInterrupt
+2025-08-09 00:36:06,676 - Traceback (most recent call last):
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+2025-08-09 00:36:06,676 - File "/home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/data_management_v05.py", line 241, in scheduler
+    if (not scheduleQueue.empty()):
+2025-08-09 00:36:06,676 - File "<string>", line 2, in empty
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/managers.py", line 818, in _callmethod
+    kind, result = conn.recv()
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/connection.py", line 250, in recv
+    buf = self._recv_bytes()
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+2025-08-09 00:36:06,676 - File "/usr/lib/python3.10/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+2025-08-09 00:36:06,676 - KeyboardInterrupt
+2025-08-09 00:36:06,679 - Process Process-7:
+2025-08-09 00:36:06,680 - Traceback (most recent call last):
+2025-08-09 00:36:06,680 - File "/home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/data_management_v05.py", line 2169, in receive_imu_data
+    data = q.get(timeout=60)  # Read data from the dataQueue
+2025-08-09 00:36:06,680 - File "<string>", line 2, in get
+2025-08-09 00:36:06,680 - File "/usr/lib/python3.10/multiprocessing/managers.py", line 833, in _callmethod
+    raise convert_to_error(kind, result)
+2025-08-09 00:36:06,680 - _queue.Empty
+2025-08-09 00:36:06,680 - During handling of the above exception, another exception occurred:
+2025-08-09 00:36:06,680 - Traceback (most recent call last):
+2025-08-09 00:36:06,680 - File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+2025-08-09 00:36:06,680 - File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+2025-08-09 00:36:06,680 - File "/home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/data_management_v05.py", line 2235, in receive_imu_data
+    time.sleep(40);
+2025-08-09 00:36:06,680 - KeyboardInterrupt
+2025-08-09 00:36:06,887 - Received non-JSON message on polar@UOI: stop
+2025-08-09 00:36:06,887 - Received message on polar@UOI: stop
+2025-08-09 00:36:06,990 - Exception ignored in:
+2025-08-09 00:36:06,990 - <module 'threading' from '/usr/lib/python3.10/threading.py'>
+2025-08-09 00:36:06,990 - Traceback (most recent call last):
+2025-08-09 00:36:06,990 - File "/usr/lib/python3.10/threading.py", line 1567, in _shutdown
+2025-08-09 00:36:06,990 - lock.acquire()
+2025-08-09 00:36:06,990 - KeyboardInterrupt
+2025-08-09 00:36:06,990 - :

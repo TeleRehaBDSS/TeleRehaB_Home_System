@@ -1,0 +1,11 @@
+{
+    "avg_torso_angle": 89.68,
+    "torso_characterization": "neutral",
+    "avg_head_tilt": -157.07,
+    "head_characterization": "tilted",
+    "avg_spine_deviation": 0.34,
+    "spine_characterization": "misaligned",
+    "avg_legs_position": 0.07,
+    "legs_characterization": "neutral",
+    "posture": "standing"
+}

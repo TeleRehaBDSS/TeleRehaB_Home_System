@@ -1,0 +1,106 @@
+2025-08-09 00:05:06,642 - /home/vtsakan/Telerehab_DSS_GITHUB/TelerehabDSS/WP3/TeleRehaB_Clinics-20250808/clinic_main.py:850: DeprecationWarning: Callback API version 1 is deprecated, update to latest version
+  client = mqtt.Client()
+2025-08-09 00:05:06,779 - Broadcasting broker IP: 192.168.2.16
+2025-08-09 00:05:06,779 - [1/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:05:06,979 - JWT Token:
+2025-08-09 00:05:06,979 - eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJFbWFpbCI6InRlc3REb2N0b3IiLCJSb2xlIjoiZG9jdG9yIiwiVXNlcklkIjoiMjYiLCJuYmYiOjE3NTQ2ODcxMDUsImV4cCI6MTc1NDczMDMwNiwiaXNzIjoiVGVsZXJlaGFiLWRldmVsb3AiLCJhdWQiOiJUZWxlcmVoYWItZGV2ZWxvcCJ9.zvfx670xToBxpAJPwcBqeGZWcayxTlImUC0DnVl3x4I
+2025-08-09 00:05:07,187 - apiKey:
+2025-08-09 00:05:07,188 - j0oMeBtroHpvYrYGi7WhZV2yAQZynsFj2fukpgQr
+2025-08-09 00:05:07,192 - Connected to MQTT broker with result code 0
+2025-08-09 00:05:07,198 - Listening for UDP messages on port 10000...
+2025-08-09 00:05:07,307 - MQTT client initialized and connected to broker.
+2025-08-09 00:05:07,592 - Connected with result code 0
+2025-08-09 00:05:07,837 - MAC address posted successfully.
+2025-08-09 00:05:08,410 - Message Received -> up
+2025-08-09 00:05:08,781 - [2/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:05:10,783 - [3/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:05:11,968 - Received JSON message on exercise@UOI/demo: {'action': 'Connected', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:05:10', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:11,968 - Received message on exercise@UOI/demo: {'action': 'Connected', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:05:10', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:11,968 - App has connected.
+2025-08-09 00:05:12,037 - Message Received -> STOP_RECORDING
+2025-08-09 00:05:12,786 - [4/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:05:13,843 - Waiting for app to connect...
+2025-08-09 00:05:13,844 - App connected, continuing...
+2025-08-09 00:05:14,788 - [5/5] Broadcasted: NEW IP - broker.emqx.io - 192.168.2.16
+2025-08-09 00:05:15,845 - Published: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:05:15.845370', 'code': '', 'message': '', 'language': 'EN'} to exercise@UOI/demo
+2025-08-09 00:05:15,937 - Received JSON message on exercise@UOI/demo: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:05:15.845370', 'code': '', 'message': '', 'language': 'EN'}
+2025-08-09 00:05:15,937 - Received message on exercise@UOI/demo: {'action': 'LANGUAGE', 'exercise': '/', 'timestamp': '2025-08-09T00:05:15.845370', 'code': '', 'message': '', 'language': 'EN'}
+2025-08-09 00:05:16,191 - Received JSON message on exercise@UOI/demo: {'action': 'ACK', 'exercise': '/', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:05:15', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:16,191 - Received message on exercise@UOI/demo: {'action': 'ACK', 'exercise': '/', 'code': 'START_ACK', 'timestamp': '2025-08-09 12:05:15', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:16,285 - Received JSON message on exercise@UOI/demo: {'action': 'FINISH', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:05:15', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:16,285 - Received message on exercise@UOI/demo: {'action': 'FINISH', 'exercise': '/', 'code': '/', 'timestamp': '2025-08-09 12:05:15', 'message': '/', 'language': 'EN', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:16,346 - Language set to EN
+2025-08-09 00:05:16,346 - Running scenario...
+2025-08-09 00:05:16,791 - Broadcast complete.
+2025-08-09 00:05:17,525 - --- Daily Schedule --- original order
+2025-08-09 00:05:17,525 - 1
+2025-08-09 00:05:17,525 - Exercise 1 - Sit - Yaw
+2025-08-09 00:05:17,525 - 4
+2025-08-09 00:05:17,525 - Exercise 4 - Stand - Maintain Balance
+2025-08-09 00:05:17,525 - 43
+2025-08-09 00:05:17,525 - Exercise 43 - Overhead reach
+2025-08-09 00:05:17,525 - 9
+2025-08-09 00:05:17,525 - Exercise 9 - Walk - Yaw
+2025-08-09 00:05:17,525 - 19
+2025-08-09 00:05:17,525 - Exercise 19 - Lateral weight shifts
+2025-08-09 00:05:17,525 - 18
+2025-08-09 00:05:17,525 - Exercise 18 - Sit to Stand
+2025-08-09 00:05:17,525 - 17
+2025-08-09 00:05:17,525 - Exercise 17 - seated marching on the spot
+2025-08-09 00:05:17,525 - 16
+2025-08-09 00:05:17,525 - Exercise 16 - Heel raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:05:17,525 - 15
+2025-08-09 00:05:17,525 - Exercise 15 - Assisted toe raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:05:17,525 - 3
+2025-08-09 00:05:17,525 - Exercise 3 - Sit - Bend
+2025-08-09 00:05:17,525 - 2
+2025-08-09 00:05:17,525 - Exercise 2 - Sit - Pitch
+2025-08-09 00:05:17,525 - 12
+2025-08-09 00:05:17,525 - Stretch 2 - Seated lateral trunk flexion
+2025-08-09 00:05:17,525 - 14
+2025-08-09 00:05:17,525 - Exercise 14 - Seated trunk rotation
+2025-08-09 00:05:17,525 - 20
+2025-08-09 00:05:17,525 - Exercise 20 - Limits of stability (anteroposterior)
+2025-08-09 00:05:17,525 - 21
+2025-08-09 00:05:17,525 - Exercise 21 - Forward reach
+2025-08-09 00:05:17,525 - --- Daily Schedule --- reordered order
+2025-08-09 00:05:17,525 - 12
+2025-08-09 00:05:17,525 - Stretch 2 - Seated lateral trunk flexion
+2025-08-09 00:05:17,525 - 1
+2025-08-09 00:05:17,525 - Exercise 1 - Sit - Yaw
+2025-08-09 00:05:17,525 - 18
+2025-08-09 00:05:17,525 - Exercise 18 - Sit to Stand
+2025-08-09 00:05:17,525 - 17
+2025-08-09 00:05:17,525 - Exercise 17 - seated marching on the spot
+2025-08-09 00:05:17,525 - 16
+2025-08-09 00:05:17,525 - Exercise 16 - Heel raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:05:17,525 - 15
+2025-08-09 00:05:17,525 - Exercise 15 - Assisted toe raises (indication: STROKE ONLY* foot drop)
+2025-08-09 00:05:17,525 - 3
+2025-08-09 00:05:17,525 - Exercise 3 - Sit - Bend
+2025-08-09 00:05:17,525 - 2
+2025-08-09 00:05:17,526 - Exercise 2 - Sit - Pitch
+2025-08-09 00:05:17,526 - 14
+2025-08-09 00:05:17,526 - Exercise 14 - Seated trunk rotation
+2025-08-09 00:05:17,526 - 4
+2025-08-09 00:05:17,526 - Exercise 4 - Stand - Maintain Balance
+2025-08-09 00:05:17,526 - 43
+2025-08-09 00:05:17,526 - Exercise 43 - Overhead reach
+2025-08-09 00:05:17,526 - 19
+2025-08-09 00:05:17,526 - Exercise 19 - Lateral weight shifts
+2025-08-09 00:05:17,526 - 20
+2025-08-09 00:05:17,526 - Exercise 20 - Limits of stability (anteroposterior)
+2025-08-09 00:05:17,526 - 21
+2025-08-09 00:05:17,526 - Exercise 21 - Forward reach
+2025-08-09 00:05:17,526 - 9
+2025-08-09 00:05:17,526 - Exercise 9 - Walk - Yaw
+2025-08-09 00:05:17,526 - Published EXIT message: {'action': 'EXIT', 'exercise': '/', 'timestamp': '2025-08-09T00:05:17.526240', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:05:17,526 - Processing Exercise ID: 12
+2025-08-09 00:05:17,526 - Published: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:05:17.526383', 'code': '', 'message': '', 'language': '/'} to exercise@UOI/demo
+2025-08-09 00:05:17,615 - Received JSON message on exercise@UOI/exit: {'action': 'EXIT', 'exercise': '/', 'timestamp': '2025-08-09T00:05:17.526240', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:05:17,615 - Received message on exercise@UOI/exit: {'action': 'EXIT', 'exercise': '/', 'timestamp': '2025-08-09T00:05:17.526240', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:05:17,709 - Received JSON message on exercise@UOI/demo: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:05:17.526383', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:05:17,709 - Received message on exercise@UOI/demo: {'action': 'START', 'exercise': 'VC holobalance_stretching_2 P0', 'timestamp': '2025-08-09T00:05:17.526383', 'code': '', 'message': '', 'language': '/'}
+2025-08-09 00:05:17,937 - Received JSON message on exercise@UOI/exit: {'action': 'ACK', 'exercise': '/', 'code': 'START_EXIT', 'timestamp': '2025-08-09 12:05:17', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:17,937 - Received message on exercise@UOI/exit: {'action': 'ACK', 'exercise': '/', 'code': 'START_EXIT', 'timestamp': '2025-08-09 12:05:17', 'message': '/', 'language': '/', 'speechRecognition': False, 'allowedRecognitionWords': [], 'allowedRecognitionWordsEnglish': []}
+2025-08-09 00:05:17,938 - EXIT acknowledged. Powering off the system...
