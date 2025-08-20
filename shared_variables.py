@@ -10,6 +10,10 @@ MQTT_BROKER_HOST = 'broker.emqx.io'  # Public MQTT broker for testing
 MQTT_BROKER_PORT = 1883
 MQTT_KEEP_ALIVE_INTERVAL = 60
 
+
+DEBUG = False;
+
+
 # Define shared variables
 manager = mp.Manager()
 queueData = manager.Queue()
@@ -22,6 +26,11 @@ imu2FinalQueue = manager.Queue()
 imu3FinalQueue = manager.Queue()
 imu4FinalQueue = manager.Queue()
 scheduleQueue = manager.Queue()
+
+command_queue = mp.Queue() # For clinic_main -> scheduler
+tick_queue = mp.Queue()    # For scheduler -> receive_imu_data
+
+
 isFoundFirstTimestamp = mp.Value('b', False)
 firstTimestamp = mp.Value('l', -1)
 counter = 0

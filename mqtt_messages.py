@@ -7,6 +7,8 @@ import multiprocessing as mp
 import configparser
 from pathlib import Path
 import subprocess
+import logging
+
 from shared_variables import (
     MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEP_ALIVE_INTERVAL)
 
@@ -97,11 +99,31 @@ def reset_ctg():
     ack_ctg_received = False
 
 # MQTT Callbacks
-def on_connect(client, userdata, flags, rc):
-    print(f"Connected with result code {rc}")
-    #client.subscribe([(DEMO_TOPIC, 0), (MSG_TOPIC, 0), (EXIT_TOPIC,0),(CAMERA_TOPIC,0),(POLAR_TOPIC,0),(PING_TOPIC,0),(ACK_TOPIC,0)])
-    client.subscribe([(DEMO_TOPIC, 0), (MSG_TOPIC, 0), (EXIT_TOPIC,0),(CAMERA_TOPIC,0),(POLAR_TOPIC,0)])
+# In client_scheduler.py or wherever on_connect is defined
 
+def on_connect(client, userdata, flags, rc):
+    try:
+        print(f"****on_connect called with result code {rc}")
+        
+        # Define the list of topics to subscribe to
+        topics_to_subscribe = [
+            (DEMO_TOPIC, 0), 
+            (MSG_TOPIC, 0), 
+            (EXIT_TOPIC, 0),
+            (CAMERA_TOPIC, 0),
+            (POLAR_TOPIC, 0)
+        ]
+        
+        # Add this line to see exactly what it's trying to subscribe to
+        print(f"Attempting to subscribe to: {topics_to_subscribe}")
+        
+        client.subscribe(topics_to_subscribe)
+        time.sleep(2)
+        print("Successfully subscribed to topics.")
+
+    except Exception as e:
+        # This will catch the error and tell you exactly what's wrong
+        print(f"!!! FAILED TO SUBSCRIBE in on_connect callback: {e}", exc_info=True)
 
 def on_message(client, userdata, msg):
     global ack_received, demo_start_received, demo_end_received, finish_received,finish_response,ctg_received,ctg_results_received,ctg_results_data,ack_ctg_received,video_ack,video_stop
@@ -211,9 +233,9 @@ def publish_and_wait(client, topic, message, timeout=5000, wait_for="ACK"):
 
 
 # Initialize MQTT Client
-def init_mqtt_client():
+def init_mqtt_client(name):
     #global client
-    client = mqtt.Client()
+    client = mqtt.Client(client_id=name)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEP_ALIVE_INTERVAL)

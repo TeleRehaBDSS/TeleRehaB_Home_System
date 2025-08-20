@@ -232,29 +232,46 @@ def plot_imu_data(imu_list, body_part, counter, folder_name):
 
 
 
-def scheduler(scheduleQueue):
-    client = init_mqtt_client()
-    print("Waiting for 'STARTCOUNTING' message...")
+import time
+import logging
+import sys
 
-    #Wait until "STARTCOUNTING" message is received in the scheduleQueue
-    while True:
-        if (not scheduleQueue.empty()):
-            message = scheduleQueue.get()  # Block until a message is received
+# It's good practice to set up proper logging
+logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+def scheduler(scheduleQueue):
+    try:
+        time.sleep(1)
+        client = init_mqtt_client("client_scheduler")
+        logging.info("Waiting for 'STARTCOUNTING' message...")
+
+        # Wait until "STARTCOUNTING" message is received in the scheduleQueue
+        while True:
+            # Using a direct blocking get is safer and more efficient than checking if empty first.
+            message = scheduleQueue.get()
             if message == "startcounting":
+                logging.info("Received 'startcounting'. Starting the scheduler...")
                 try:
                     send_voice_instructions(client, "bph0082")
                     client.publish(CAMERA_TOPIC, "CAMERA_START")
-
                 except Exception as e:
-                    print(f"{e}")
-                print("Received 'startcounting'. Starting the scheduler...")
+                    logging.error(f"Error during 'startcounting' actions: {e}", exc_info=True)
                 break  # Exit the loop and proceed to start the scheduling
+            else:
+                logging.warning(f"Received unexpected message in queue: {message}")
 
-    # Now start the main loop
-    while True:
-        time.sleep(timeToCallMetrics)
-        scheduleQueue.put("GO")
 
+        # Now start the main loop
+        logging.info("Starting main scheduling loop...")
+        while True:
+            time.sleep(timeToCallMetrics)
+            scheduleQueue.put("GO")
+
+    except Exception as e:
+        # This is the most important part. It will catch any crash and log it.
+        logging.error(f"FATAL ERROR in scheduler process: {e}", exc_info=True)
+        # exc_info=True will print the full error traceback
 
 def parse_config_message(config_message):
     config_dict = {}
@@ -293,7 +310,7 @@ def safe_get_imu_queue(imu_data, body_part, default_queue):
 
 
 def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ctg_queue):
-    client = init_mqtt_client()
+    client = init_mqtt_client("client_receive_imu_data")
     # Initialize multiprocessing manager
     manager = mp.Manager()
     imu_config, exercise_code = parse_config_message(config_message)

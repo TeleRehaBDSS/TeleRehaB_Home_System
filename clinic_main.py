@@ -18,12 +18,11 @@ from configure_file_management import read_configure_file
 from shared_variables import (
     queueData, scheduleQueue, enableConnectionToAPI,
     MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEP_ALIVE_INTERVAL,
-    mqttState
+    mqttState, DEBUG
 )
 from UDPClient2 import broadcast_ip
 from UDPSERVER import start_multicast_server
 from UDPSERVER import start_unicast_server
-from UDPClient import SendMyIP
 from websocketServer import run_websocket_server
 from pathlib import Path
 from mqtt_messages import ctg_queue
@@ -112,43 +111,6 @@ def reorder_exercises(exercises): #Function that add the exer and cognitive game
 
     # Concatenate
     return priority_exercises + special_exercise + other_exercises
-
-def send_heartbeat():
-    global received_response
-    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
-    client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, 60)
-
-    while True:
-        received_response.value = 0  # Reset flag
-        client.publish(TOPIC_PING, "AREYOUALIVE")
-        print('------------------HEALTHCHECK-----------------------')
-        time.sleep(30)  # Wait for 30 seconds
-
-        # Wait for a response for a few more seconds before logging failure
-        timeout = time.time() + 5
-        while time.time() < timeout:
-            if received_response.value == 1:
-                break
-            time.sleep(1)
-
-        if received_response.value == 0:
-            print("WARNING: No response received from the mobile app!")
-            os.system("pkill -f 'gnome-terminal'")
-    
-            sys.exit(1)  # Exit the program with error code 1
-
-def on_message_healthcheck(client, userdata, msg):
-    global received_response
-    if msg.topic == TOPIC_PONG:
-        received_response.value = 1  # Mark that the response was received
-        print('I got msg from app')
-
-def start_mqtt_listener():
-    client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
-    client.on_message = on_message_healthcheck
-    client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, 60)
-    client.subscribe(TOPIC_PONG)
-    client.loop_forever()  # Blocking call to listen continuously
 
 # Define file storage API endpoints
 FILE_STORAGE_BASE_URL = "https://telerehab-develop.biomed.ntua.gr/filestorage"
@@ -300,13 +262,15 @@ def post_results(score, exercise_id):
             "Authorization": api_key_edge,  
             "Content-Type": "application/json"
         }
-        response = requests.post(url, json=post_data, headers=headers)
-        
-        if response.status_code == 200:
-            logger.info(f"Metrics successfully posted for exercise ID {exercise_id}")
-        else:
-            logger.error(f"Failed to post metrics for exercise ID {exercise_id}. Status code: {response.status_code}")
-            logger.error("Response: " + response.text)
+
+        if (not DEBUG):
+            response = requests.post(url, json=post_data, headers=headers)
+            
+            if response.status_code == 200:
+                logger.info(f"Metrics successfully posted for exercise ID {exercise_id}")
+            else:
+                logger.error(f"Failed to post metrics for exercise ID {exercise_id}. Status code: {response.status_code}")
+                logger.error("Response: " + response.text)
     except requests.exceptions.RequestException as e:
         logger.error(f"Error posting results: {e}")
 
@@ -385,10 +349,9 @@ def start_heartbeat_process():
 # Main logic to run scenario
 def runScenario(queueData):
 
-    client = init_mqtt_client()
+    client = init_mqtt_client(name = "client_runScenario")
     post_patient_ip(MQTT_BROKER_HOST)
     logging.basicConfig(level=logging.INFO)
-    #client.subscribe([(DEMO_TOPIC, 0), (MSG_TOPIC, 0), (EXIT_TOPIC,0)])
 
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
@@ -454,6 +417,9 @@ def runScenario(queueData):
 
             # Process each exercise in the schedule
             for exercise in exercises:
+
+                print('********************STEP 01***********************')
+
                 reset_global_flags()
 
                 logger.info(f"Processing Exercise ID: {exercise['exerciseId']}")
@@ -510,7 +476,8 @@ def runScenario(queueData):
                         post_results(json.dumps(metrics), exercise['exerciseId'])
                         logger.warning("No results returned from cognitive game.")
 
-                
+                print('********************STEP 02***********************')
+
                 # Determine the config message based on exercise ID
                 if exercise['exerciseId'] == 1 :
                     config_message = f"HEAD={imu_head}-QUATERNIONS,PELVIS={imu_pelvis}-OFF,LEFTFOOT={imu_left}-OFF,RIGHTFOOT={imu_right}-OFF,exer_01"
@@ -585,6 +552,7 @@ def runScenario(queueData):
                 
                 # Publish configuration and start the exercise
                 topic = f"TELEREHAB@{clinic_id}/IMUsettings"
+                print('********************STEP 03***********************')
 
                 # Publish the configuration message to start the exercise
                 print('--- Starting the exercise ---')
@@ -594,8 +562,14 @@ def runScenario(queueData):
                     client.publish(f'TELEREHAB@{clinic_id}/StartRecording', 'START_RECORDING')
                     client.publish(POLAR_TOPIC, "start")
                     # Start the scheduler process
-                    scheduler_process = mp.Process(target=scheduler, args=(scheduleQueue,))
-                    scheduler_process.start()
+                    try:
+                        time.sleep(1)
+                        scheduler_process = mp.Process(target=scheduler, args=(scheduleQueue,))
+                        scheduler_process.start()
+                    except:
+                            print(f"!!! FATAL ERROR in clinic_main: {e}")
+
+                    print('********************STEP 04***********************')
 
                     # Wait for Polar connection or failure
                     time.sleep(5)  # Give some time to attempt connection
@@ -609,6 +583,9 @@ def runScenario(queueData):
                     imu_process.start()
                     # Wait for the IMU process to finish
                     imu_process.join()
+
+                    print('********************STEP 05***********************')
+
                     client.publish(POLAR_TOPIC, "stop")
                     data_zip_path = None
                     while not scheduleQueue.empty():
@@ -621,6 +598,7 @@ def runScenario(queueData):
                     # Terminate the scheduler process
                     scheduler_process.terminate()
                     scheduler_process.join()
+                    print('********************STEP 06***********************')
 
                     # Stop recording after data collection is done
                     client.publish(f'TELEREHAB@{clinic_id}/StopRecording', 'STOP_RECORDING')
@@ -730,6 +708,7 @@ def runScenario(queueData):
                 # Mark the exercise as completed
                 print(f"Exercise {exercise['exerciseName']} completed.")
                 time.sleep(1)
+                print('********************STEP 07***********************')
 
                 # Fetch updated schedule after processing current exercises
                 exercises = get_daily_schedule()
@@ -846,14 +825,10 @@ def on_message(client, userdata, msg):
     logger.info(f"Message Received -> {msg.payload.decode()}")
 
 # Start MQTT client
-client = mqtt.Client()
+client = mqtt.Client(client_id="client_main")
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEP_ALIVE_INTERVAL)
-
-#client_process = mp.Process(target=SendMyIP, args=())
-#client_process.start()
-
 
 process = start_broadcast_process()
 
@@ -872,23 +847,15 @@ if enableConnectionToAPI:
 #server_process = mp.Process(target=start_multicast_server, args=(queueData,))
 server_process = mp.Process(target=start_unicast_server, args=(queueData,))
 server_process.start()
-# iamalive_process = mp.Process(target=checkIAMALIVE, args=(iamalive_queue,))
-# iamalive_process.start()
 
-#proc = start_heartbeat_process()
-
-#thread = threading.Thread(target=publish_loop)
-# thread.start()
 received_response = mp.Value('b', 0)  # Shared flag to track responses
-#listener_process = mp.Process(target=start_mqtt_listener)
-#listener_process.start()
 
 threadscenario = threading.Thread(target=runScenario, args=(queueData,))
 threadscenario.start()
 
-#send_heartbeat()
+
 client.loop_forever()
 #client.loop_start()
-#send_heartbeat()
+
 threadscenario.join()
 #proc.join();
