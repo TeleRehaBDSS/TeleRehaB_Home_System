@@ -5,8 +5,8 @@ import json
 import FindMyIP as ip
 
 local_ip = ip.internal()
-MQTT_BROKER_HOST = 'broker.emqx.io'  # Public MQTT broker for testing
-#MQTT_BROKER_HOST = local_ip
+#MQTT_BROKER_HOST = 'broker.emqx.io'  # Public MQTT broker for testing
+MQTT_BROKER_HOST = local_ip
 MQTT_BROKER_PORT = 1883
 MQTT_KEEP_ALIVE_INTERVAL = 60
 

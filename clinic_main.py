@@ -596,6 +596,8 @@ def runScenario(queueData):
                     if data_zip_path:
                         upload_file(data_zip_path, "Data")
                     # Terminate the scheduler process
+                    
+                    scheduleQueue.put("EXIT_NO_DATA");
                     scheduler_process.terminate()
                     scheduler_process.join()
                     print('********************STEP 06***********************')
@@ -607,7 +609,8 @@ def runScenario(queueData):
 
                 else:
                     print("###cognitive###")
-                
+                while not scheduleQueue.empty():
+                        msg = scheduleQueue.get()
                 response = 'X';
                 if not metrics_queue.empty():
                     metrics = metrics_queue.get()

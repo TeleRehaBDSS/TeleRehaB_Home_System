@@ -240,7 +240,75 @@ import sys
 logging.basicConfig(level=logging.INFO, stream=sys.stdout,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def scheduler(scheduleQueue):
+
+def scheduler(scheduleQueue, time_to_call_metrics = timeToCallMetrics, camera_topic = CAMERA_TOPIC, voice_instruction_id = "bph0082"):
+    """
+    A process that waits for a start signal and then periodically sends a "GO"
+    message using a polling loop.
+
+    *** WARNING: This function has no graceful shutdown mechanism. ***
+    *** It will run forever and cannot be stopped cleanly.      ***
+
+    Args:
+        scheduleQueue (Queue): The queue for communication.
+        time_to_call_metrics (float): Seconds to wait between sending "GO" messages.
+        camera_topic (str): The MQTT topic for camera control.
+        voice_instruction_id (str): The ID for the initial voice instruction.
+    """
+    client = None
+    try:
+        time.sleep(1)
+        client = init_mqtt_client("client_scheduler")
+        logging.info("Waiting for 'startcounting' message...")
+
+        # Phase 1: Wait for the start signal
+        while True:
+            try:
+                message = scheduleQueue.get(timeout=1)
+                
+                if isinstance(message, str) and message.lower() == "startcounting":
+                    logging.info("Received 'startcounting'. Starting the scheduler...")
+                    try:
+                        send_voice_instructions(client, voice_instruction_id)
+                        client.publish(camera_topic, "CAMERA_START")
+                    except Exception as e:
+                        logging.error(f"Error during 'startcounting' actions: {e}", exc_info=True)
+                    break  # Exit the wait-loop and proceed to the main loop
+                elif isinstance(message, str) and message.lower() == "EXIT_NO_DATA":
+                    logging.info("Received 'EXIT_NO_DATA'. Exiting scheduler process.")
+                    return   
+                else:
+                    logging.warning(f"Received unexpected message while waiting: {message}")
+
+            except queue.Empty:
+                # No message arrived in the last second, continue polling.
+                pass
+
+        # Phase 2: Main scheduling loop (runs infinitely)
+        logging.info(f"Starting main polling loop. Ticking every {time_to_call_metrics} seconds.")
+        last_go_time = time.monotonic()
+        scheduleQueue.put("GO")
+
+        while True:
+            current_time = time.monotonic()
+            if current_time - last_go_time >= time_to_call_metrics:
+                scheduleQueue.put("GO")
+                logging.info("Sent 'GO' based on polling timer.")
+                last_go_time = current_time
+
+    except Exception as e:
+        logging.error(f"FATAL ERROR in scheduler process: {e}", exc_info=True)
+    finally:
+        if client:
+            logging.info("Disconnecting MQTT client.")
+            client.disconnect()
+        # This log message will only ever appear if the process crashes.
+        logging.info("Scheduler process terminated due to an error.")
+
+
+
+
+def scheduler_old(scheduleQueue):
     try:
         time.sleep(1)
         client = init_mqtt_client("client_scheduler")
