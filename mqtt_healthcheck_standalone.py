@@ -147,6 +147,28 @@ def main():
         log.error("clinic.ini missing [CLINIC] section or non-empty clinic_id key.")
         sys.exit(1)
 
+    api_config = configparser.ConfigParser()
+    api_ini_path = SCRIPT_DIR / "config.ini"
+    if not api_ini_path.exists():
+        log.error(f"Required configuration file config.ini not found at {api_ini_path}")
+        sys.exit(1)
+
+    api_config.read(api_ini_path)
+    try:
+        key_edge = api_config["API"]["key_edge"].strip()
+    except KeyError:
+        log.error("config.ini is missing the [API] section or the key_edge key.")
+        sys.exit(1)
+
+    # Check for the special '00000' key to disable the service
+    if key_edge == "00000":
+        log.info("key_edge in config.ini is '00000'.")
+        log.info("As per configuration, the heartbeat service will NOT start.")
+        log.info("The system will not be monitored for shutdown.")
+        sys.exit(0)  # Exit gracefully
+
+    log.info("Valid key_edge found. Heartbeat service will proceed to start.")
+
     checker = HeartbeatChecker(
         clinic_id=clinic_id,
         broker_host=MQTT_BROKER_HOST,
