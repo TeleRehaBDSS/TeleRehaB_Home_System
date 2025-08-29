@@ -16,6 +16,7 @@ from shared_variables import MQTT_BROKER_HOST,MQTT_BROKER_PORT,MQTT_KEEP_ALIVE_I
 from pathlib import Path
 import configparser
 
+print('check01')
 
 BASE_DIR = Path(__file__).resolve().parent
 # Construct the paths for config and logo
@@ -53,7 +54,7 @@ elif "thunder" in model_name:
     input_size = 256
 else:
     raise ValueError("Unsupported model name.")
-
+print('check02')
 def movenet(input_image):
     model = module.signatures['serving_default']
     input_image = tf.cast(input_image, dtype=tf.int32)
@@ -244,13 +245,13 @@ def on_message(client, userdata, msg):
         collect_data = False
     elif payload == "CAMERAOUT":
         running = False
-
+print('check03')
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, MQTT_KEEP_ALIVE_INTERVAL)
 client.loop_start()
-
+print('check04')
 pipeline = rs.pipeline()
 config = rs.config()
 config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
