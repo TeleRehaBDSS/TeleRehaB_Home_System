@@ -53,7 +53,7 @@ def postExerciseScore(score, exercise_id):
     api_key_edge = config['API'].get('key_edge', '')
 
     # Define the API endpoint
-    performance_score_url = 'https://telerehab-develop.biomed.ntua.gr/api/PerformanceScore'
+    performance_score_url = 'https://telerehab.biomed.ntua.gr/api/PerformanceScore'
 
     # Function to post performance score
     headers = {

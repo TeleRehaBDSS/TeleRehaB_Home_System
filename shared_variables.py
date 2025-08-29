@@ -58,11 +58,11 @@ exerciseId = 1
 deviceApiKey = ""
 
 #APIs
-urlLogin = 'https://telerehab-develop.biomed.ntua.gr/api/Login'
-urlProduceApiKey = 'https://telerehab-develop.biomed.ntua.gr/api/PatientDeviceSet/list'
-urlUploadSensorData = 'https://telerehab-develop.biomed.ntua.gr/api/SensorData'
-urlGetSchedule = 'https://telerehab-develop.biomed.ntua.gr/api/PatientSchedule/daily'
-urlPerfomanceScore = 'https://telerehab-develop.biomed.ntua.gr/api/PatientSchedule/daily'
+urlLogin = 'https://telerehab.biomed.ntua.gr/api/Login'
+urlProduceApiKey = 'https://telerehab.biomed.ntua.gr/api/PatientDeviceSet/list'
+urlUploadSensorData = 'https://telerehab.biomed.ntua.gr/api/SensorData'
+urlGetSchedule = 'https://telerehab.biomed.ntua.gr/api/PatientSchedule/daily'
+urlPerfomanceScore = 'https://telerehab.biomed.ntua.gr/api/PatientSchedule/daily'
 
 headers = {
     'accept': '*/*',

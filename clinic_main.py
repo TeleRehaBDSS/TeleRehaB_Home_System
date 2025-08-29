@@ -113,7 +113,7 @@ def reorder_exercises(exercises): #Function that add the exer and cognitive game
     return priority_exercises + special_exercise + other_exercises
 
 # Define file storage API endpoints
-FILE_STORAGE_BASE_URL = "https://telerehab-develop.biomed.ntua.gr/filestorage"
+FILE_STORAGE_BASE_URL = "https://telerehab.biomed.ntua.gr/filestorage"
 LOGS_ENDPOINT = f"{FILE_STORAGE_BASE_URL}/Logs"
 DATA_ENDPOINT = f"{FILE_STORAGE_BASE_URL}/Data"
 
@@ -214,7 +214,7 @@ def get_devices():
     config.read(CONFIG_PATH)
     api_key_edge = config['API'].get('key_edge', '')
     
-    url = 'http://telerehab-develop.biomed.ntua.gr/api/PatientDeviceSet'
+    url = 'http://telerehab.biomed.ntua.gr/api/PatientDeviceSet'
     headers = {
         'accept': '*/*',
         'Authorization': api_key_edge
@@ -232,7 +232,7 @@ def get_daily_schedule():
     config.read(CONFIG_PATH)
     api_key_edge = config['API'].get('key_edge', '')
     
-    url = 'http://telerehab-develop.biomed.ntua.gr/api/PatientSchedule/daily'
+    url = 'http://telerehab.biomed.ntua.gr/api/PatientSchedule/daily'
     headers = {
         'accept': '*/*',
         'Authorization': api_key_edge
@@ -251,7 +251,7 @@ def post_results(score, exercise_id):
     api_key_edge = config['API'].get('key_edge', '')
     """Post metrics to the PerformanceScore API."""
     try:
-        url = "https://telerehab-develop.biomed.ntua.gr/api/PerformanceScore"
+        url = "https://telerehab.biomed.ntua.gr/api/PerformanceScore"
         date_posted = datetime.now().isoformat()
         post_data = {
             "score": score,
@@ -280,7 +280,7 @@ def get_patient_id():
     config.read(CONFIG_PATH)
     api_key_edge = config['API'].get('key_edge', '')
     
-    url = 'http://telerehab-develop.biomed.ntua.gr/api/PatientDeviceSet/Check'
+    url = 'http://telerehab.biomed.ntua.gr/api/PatientDeviceSet/Check'
     headers = {
         'accept': '*/*',
         'Authorization': api_key_edge
@@ -297,10 +297,10 @@ def post_patient_ip(mac_address):
     if patient_id is None:
         raise ValueError("Could not retrieve patientId")
 
-    url = 'https://telerehab-develop.biomed.ntua.gr/api/PatientDeviceSetIp'
+    url = 'https://telerehab.biomed.ntua.gr/api/PatientDeviceSetIp'
     headers = {
         'accept': '*/*',
-        'Authorization': "yx1xfdYJMvGorWpBV5F1DGgU7KscfTQ4wdqe57Ca",
+        'Authorization': "1IeT76UWcgAkA9SvOkjcy9nsVxpJXrQVNPMQevkDEfUU",
         'Content-Type': 'application/json'
     }
     payload = {

@@ -18,8 +18,8 @@ config.read(CONFIG_PATH)
 api_key = config['API'].get('key_doctor', '')
 
 # Define the API endpoints
-login_url = 'https://telerehab-develop.biomed.ntua.gr/api/Login'
-data_url = 'https://telerehab-develop.biomed.ntua.gr/api/PatientDeviceSet/list'
+login_url = 'https://telerehab.biomed.ntua.gr/api/Login'
+data_url = 'https://telerehab.biomed.ntua.gr/api/PatientDeviceSet/list'
 
 # Function to login and get the token
 def login(username, password):
