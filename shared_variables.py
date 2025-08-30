@@ -69,8 +69,8 @@ headers = {
     'Content-Type': 'application/json-patch+json',
 }
 credentials = {
-    "username": "testDoctor",
-    "password": "TeleAdmin2023"
+    "username": "test-clinic",
+    "password": "JA7oR8Yf"
 }
 
 sensorDataToUpload = {
