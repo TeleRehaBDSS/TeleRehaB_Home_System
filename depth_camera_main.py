@@ -319,6 +319,7 @@ try:
             #cv2.imshow('Pose Estimation', output_frame)
         else:
             k = k + 1
+            print('ok');
             #cv2.imshow('Pose Estimation', frame)
 
         #if cv2.waitKey(1) & 0xFF == ord('q'):
