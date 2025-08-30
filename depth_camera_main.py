@@ -260,7 +260,7 @@ pipeline.start(config)
 prev_crop_region = init_crop_region(480, 640)
 frame_interval = 0.5
 last_frame_time = time.time()
-
+k = 0;
 try:
     while running:
         if time.time() - last_frame_time < frame_interval:
@@ -317,6 +317,7 @@ try:
             output_frame = draw_prediction_on_image(frame, keypoints, crop_region=prev_crop_region, output_image_height=480)
             #cv2.imshow('Pose Estimation', output_frame)
         else:
+            k = k + 1
             #cv2.imshow('Pose Estimation', frame)
 
         #if cv2.waitKey(1) & 0xFF == ord('q'):
