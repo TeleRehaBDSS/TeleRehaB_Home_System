@@ -315,6 +315,7 @@ try:
                 collect_data = False
 
             output_frame = draw_prediction_on_image(frame, keypoints, crop_region=prev_crop_region, output_image_height=480)
+            print(result);
             #cv2.imshow('Pose Estimation', output_frame)
         else:
             k = k + 1
