@@ -315,9 +315,9 @@ try:
                 collect_data = False
 
             output_frame = draw_prediction_on_image(frame, keypoints, crop_region=prev_crop_region, output_image_height=480)
-            cv2.imshow('Pose Estimation', output_frame)
+            #cv2.imshow('Pose Estimation', output_frame)
         else:
-            cv2.imshow('Pose Estimation', frame)
+            #cv2.imshow('Pose Estimation', frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
