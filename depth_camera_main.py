@@ -319,8 +319,8 @@ try:
         else:
             #cv2.imshow('Pose Estimation', frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+        #    break
 finally:
     pipeline.stop()
     cv2.destroyAllWindows()
