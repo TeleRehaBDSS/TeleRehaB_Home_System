@@ -35,9 +35,8 @@ This README gives step-by-step hardware and software setup for the TeleRehaB Dec
 Use only under clinician guidance and prescription. For assessed patients only. Unauthorized use is prohibited.
 
 ## Support
-- **Panagiotis Lionas** — panagiotislionas@gmail.com, +30 698 908 0866  
-- **Vasilis Tsakanikas** — vasilistsakanikas@gmail.com, +30 697 274 5067  
-- **Telegram (real-time help):** https://t.me/+7FF7IzooFkhlMzNk
+- **Panagiotis Lionas**
+- **Vasilis Tsakanikas**
 
 ---
 
