@@ -36,9 +36,9 @@ config.read(CONFIG_PATH_2)
 # Get clinic_id and strip quotes
 clinic_id = config.get("CLINIC", "clinic_id").strip('"')
 
-DEMO_TOPIC = f"exercise{clinic_id}/demo"
-MSG_TOPIC = f"exercise{clinic_id}/msg"
-EXIT_TOPIC = f"exercise{clinic_id}/exit"
+DEMO_TOPIC = f"exercise@{clinic_id}/demo"
+MSG_TOPIC = f"exercise@{clinic_id}/msg"
+EXIT_TOPIC = f"exercise@{clinic_id}/exit"
 
 
 # Construct the paths for config and logo
@@ -355,7 +355,7 @@ def runScenario(queueData):
 
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
-    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC')
+    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=True)
     time.sleep(4)
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
@@ -366,7 +366,7 @@ def runScenario(queueData):
     print("Waiting for app to connect...")
     while not app_connected.value:
         time.sleep(1)
-        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC')
+        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1)
     print("App connected, continuing...")
     app_connected.value = False  # Reset for next use
 
@@ -825,7 +825,26 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
+    payload_raw = msg.payload.decode().strip()
     logger.info(f"Message Received -> {msg.payload.decode()}")
+
+    # ---- NEW: set app_connected από DeviceStatus ----
+    if msg.topic == f"TELEREHAB@{clinic_id}/DeviceStatus":
+        try:
+            payload = json.loads(payload_raw)
+        except json.JSONDecodeError:
+            payload = payload_raw
+
+        # Πιάσε και JSON και απλό string
+        status = ""
+        if isinstance(payload, dict):
+            status = str(payload.get("status") or payload.get("action") or "").lower()
+        else:
+            status = str(payload).lower()
+
+        if status in ("connected", "ready", "ok", "app_connected"):
+            app_connected.value = True
+            logger.info("App connection acknowledged via DeviceStatus -> app_connected = True")
 
 
 
