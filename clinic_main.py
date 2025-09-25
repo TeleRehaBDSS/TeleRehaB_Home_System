@@ -366,7 +366,7 @@ def runScenario(queueData):
     print("Waiting for app to connect...")
     while not app_connected.value:
         time.sleep(1)
-        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=True)
+        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC')
     print("App connected, continuing...")
     app_connected.value = False  # Reset for next use
 
@@ -827,14 +827,6 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     logger.info(f"Message Received -> {msg.payload.decode()}")
 
-    if msg.topic == f"TELEREHAB@{clinic_id}/DeviceStatus":
-            low = payload.lower()
-            if low in ("connected", "ready", "app_connected", "ok"):
-                try:
-                    app_connected.value = True
-                    logger.info("App connection acknowledged -> app_connected = True")
-                except Exception as e:
-                    logger.error(f"Failed to set app_connected flag: {e}")
 
 
 # Start MQTT client
