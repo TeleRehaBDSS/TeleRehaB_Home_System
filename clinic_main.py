@@ -355,7 +355,7 @@ def runScenario(queueData):
 
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
-    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC',, qos=1, retain=True)
+    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC')
     time.sleep(4)
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
