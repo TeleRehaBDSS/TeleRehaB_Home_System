@@ -26,6 +26,14 @@ from UDPSERVER import start_unicast_server
 from websocketServer import run_websocket_server
 from pathlib import Path
 from mqtt_messages import ctg_queue
+import re
+MAC_RE = re.compile(r'[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}')
+
+def clean_mac(x):
+    if not x:
+        return None
+    m = MAC_RE.search(x)
+    return m.group(0).upper() if m else None
 
 # Get the directory where the script is located at
 BASE_DIR = Path(__file__).resolve().parent
@@ -400,6 +408,11 @@ def runScenario(queueData):
             imu_left = imu_serials.get('imu-three')
             imu_right = imu_serials.get('imu-four')
 
+            imu_head   = clean_mac(imu_head)
+            imu_pelvis = clean_mac(imu_pelvis)
+            imu_left   = clean_mac(imu_left)
+            imu_right  = clean_mac(imu_right)
+            
             # Fetch the daily schedule
             exercises = get_daily_schedule()
             print('--- Daily Schedule --- original order')
