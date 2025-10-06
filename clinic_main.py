@@ -412,7 +412,11 @@ def runScenario(queueData):
             imu_pelvis = clean_mac(imu_pelvis)
             imu_left   = clean_mac(imu_left)
             imu_right  = clean_mac(imu_right)
-            
+
+            print(imu_head)
+            print(imu_pelvis)
+            print(imu_left)
+            print(imu_right)
             # Fetch the daily schedule
             exercises = get_daily_schedule()
             print('--- Daily Schedule --- original order')
