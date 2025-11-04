@@ -287,7 +287,7 @@ def scheduler(scheduleQueue, time_to_call_metrics = timeToCallMetrics, camera_to
         # Phase 2: Main scheduling loop (runs infinitely)
         logging.info(f"Starting main polling loop. Ticking every {time_to_call_metrics} seconds.")
         last_go_time = time.monotonic()
-        scheduleQueue.put("GO")
+        #scheduleQueue.put("GO")
 
         while True:
             current_time = time.monotonic()
@@ -597,7 +597,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
                     sensor_data = SensorData.from_json(data)
-
+                    print("SENSOR DATA ######",sensor_data)
                     # Use deviceMacAddress as the body part identifier
                     body_part = sensor_data.device_mac_address
 
@@ -605,6 +605,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                         received_body_parts.add(body_part);
                     
                     if (received_body_parts == expected_body_parts):
+                        
                         condition_met = True;
                         start_time = time.monotonic()
                         scheduleQueue.put('startcounting')
@@ -3405,4 +3406,3 @@ def process_and_interpolate_imus(imu_data, target_rate_hz):
             print(f"{body_part} data interpolated.")
         else:
             print(f"No data available for {body_part}, skipping interpolation.")
-
