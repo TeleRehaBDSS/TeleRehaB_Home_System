@@ -441,61 +441,8 @@ def runScenario(queueData):
 
                 logger.info(f"Processing Exercise ID: {exercise['exerciseId']}")
                 
-                if exercise["exerciseId"] in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,43]:
-                    try:
-                        start_exercise_demo(client, exercise)
-
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue
-                elif exercise["exerciseId"] in [28,29,30,31,32,33,34,35,36]:
-                    try:
-                        start_exergames(client, exercise)
-                        client.publish("CAMERA_START", "start")
-                        time.sleep(7)
-                        client.publish("CAMERA_STOP", "stop")
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue
-                elif exercise["exerciseId"] in [24,25,26,27]:
-                    try:
-                        start_exercise_demo(client, exercise)
-                        client.publish("CAMERA_START", "start")
-                        time.sleep(7)
-                        client.publish("CAMERA_STOP", "stop")
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue
-                    time.sleep(5)
-                    send_voice_instructions(client, "bph0082")
-                    try:
-                        start_video(client, exercise)
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue
-                    time.sleep(30)
-                    try:
-                        stop_video(client, exercise)
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue    
-                else:
-                    try:
-                        results = start_cognitive_games(client, exercise)
-                    except Exception as e:
-                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
-                        continue
-                    if results:
-                        metrics = results
-                        post_results(json.dumps(metrics), exercise['exerciseId'])
-                    else:
-                        metrics = {"metrics": ["ERROR IN METRICS", "ERROR IN METRICS", "ERROR IN METRICS"]}
-                        post_results(json.dumps(metrics), exercise['exerciseId'])
-                        logger.warning("No results returned from cognitive game.")
-
-                print('********************STEP 02***********************')
-
                 # Determine the config message based on exercise ID
+                config_message = None
                 if exercise['exerciseId'] == 1 :
                     config_message = f"HEAD={imu_head}-QUATERNIONS,PELVIS={imu_pelvis}-OFF,LEFTFOOT={imu_left}-OFF,RIGHTFOOT={imu_right}-OFF,exer_01"
                 elif exercise['exerciseId'] == 2 :
@@ -563,20 +510,73 @@ def runScenario(queueData):
                     config_message = f"HEAD={imu_head}-QUATERNIONS,PELVIS={imu_pelvis}-QUATERNIONS,LEFTFOOT={imu_left}-LINEARACCELERATION,RIGHTFOOT={imu_right}-LINEARACCELERATION,exer_34"
                 elif exercise['exerciseId'] == 35 or exercise['exerciseId'] == 36:
                     config_message = f"HEAD={imu_head}-QUATERNIONS,PELVIS={imu_pelvis}-QUATERNIONS,LEFTFOOT={imu_left}-LINEARACCELERATION,RIGHTFOOT={imu_right}-LINEARACCELERATION,exer_35"
-                else:
-                    logger.warning(f"No config message found for Exercise ID: {exercise['exerciseId']}")
-                    
                 
+                if config_message:
+                    client.publish(f"TELEREHAB@{clinic_id}/IMUsettings", config_message) #Changed 20251031,this was done after DEMO_END
+                    time.sleep(4)
+                    client.publish(f'TELEREHAB@{clinic_id}/StartRecording', 'START_RECORDING')
+
+                if exercise["exerciseId"] in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,43]:
+                    try:
+                        start_exercise_demo(client, exercise)
+
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue
+                elif exercise["exerciseId"] in [28,29,30,31,32,33,34,35,36]:
+                    try:
+                        start_exergames(client, exercise)
+                        client.publish("CAMERA_START", "start")
+                        time.sleep(7)
+                        client.publish("CAMERA_STOP", "stop")
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue
+                elif exercise["exerciseId"] in [24,25,26,27]:
+                    try:
+                        start_exercise_demo(client, exercise)
+                        client.publish("CAMERA_START", "start")
+                        time.sleep(7)
+                        client.publish("CAMERA_STOP", "stop")
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue
+                    time.sleep(5)
+                    send_voice_instructions(client, "bph0082")
+                    try:
+                        start_video(client, exercise)
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue
+                    time.sleep(30)
+                    try:
+                        stop_video(client, exercise)
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue    
+                else:
+                    try:
+                        results = start_cognitive_games(client, exercise)
+                    except Exception as e:
+                        logger.error(f"Demonstration failed for Exercise ID {exercise['exerciseId']}: {e}")
+                        continue
+                    if results:
+                        metrics = results
+                        post_results(json.dumps(metrics), exercise['exerciseId'])
+                    else:
+                        metrics = {"metrics": ["ERROR IN METRICS", "ERROR IN METRICS", "ERROR IN METRICS"]}
+                        post_results(json.dumps(metrics), exercise['exerciseId'])
+                        logger.warning("No results returned from cognitive game.")
+
+                print('********************STEP 02***********************')
+
                 # Publish configuration and start the exercise
-                topic = f"TELEREHAB@{clinic_id}/IMUsettings"
+                #topic = f"TELEREHAB@{clinic_id}/IMUsettings"
                 print('********************STEP 03***********************')
 
                 # Publish the configuration message to start the exercise
                 print('--- Starting the exercise ---')
                 if exercise["exerciseId"] in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,28,29,30,31,32,33,34,35,36,43]:
-                    client.publish(f"TELEREHAB@{clinic_id}/IMUsettings", config_message)
-                    time.sleep(4)
-                    client.publish(f'TELEREHAB@{clinic_id}/StartRecording', 'START_RECORDING')
                     client.publish(POLAR_TOPIC, "start")
                     # Start the scheduler process
                     try:
@@ -589,7 +589,7 @@ def runScenario(queueData):
                     print('********************STEP 04***********************')
 
                     # Wait for Polar connection or failure
-                    time.sleep(5)  # Give some time to attempt connection
+                    #time.sleep(5)  # Give some time to attempt connection
 
                     # Start the process to receive IMU data
                     imu_process = mp.Process(
@@ -864,6 +864,8 @@ def on_message(client, userdata, msg):
             logger.info("App connection acknowledged via DeviceStatus -> app_connected = True")
 
 
+#client_kill_VR = init_mqtt_client(name = "client_kill_VR")
+#send_exit(client_kill_VR)
 
 # Start MQTT client
 client = mqtt.Client(client_id="client_main")
