@@ -414,13 +414,13 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
     if exercise_code == 'exer_01':
         condition_met = False;
         start_time = time.time();
-
+        mytimeout=40;
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -433,6 +433,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                         received_body_parts.add(body_part);
                     
                     if (received_body_parts == expected_body_parts):
+                        mytimeout=2;
                         condition_met = True;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
@@ -494,12 +495,17 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_02':
+        mytimeout=40;
         condition_met = False;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
@@ -507,7 +513,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -521,6 +527,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -578,47 +585,78 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_03': #Sitting Bending Over
         condition_met = False;
         start_time = time.time();
+        mytimeout = 40;
         while INTERVALS < 4 or not q.empty():
-            TIMEOUT=40
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=TIMEOUT)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
                     sensor_data = SensorData.from_json(data)
-                    print("SENSOR DATA ######",sensor_data)
+                    #print("SENSOR DATA ######",sensor_data)
                     # Use deviceMacAddress as the body part identifier
                     body_part = sensor_data.device_mac_address
 
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
                         
-                        condition_met = True;
-                        start_time = time.monotonic()
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -683,21 +721,27 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                         send_voice_instructions(client, "bph0083")
                         break;    
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40)
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
 
     elif exercise_code == 'exer_04': #Trunk Rotation
         condition_met = False;
+        mytimeout = 40;
         start_time = time.time();
+        print("EXPECTED BODY PARTS:",expected_body_parts)
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -709,19 +753,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -780,20 +853,27 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    print("SENSOR DATA",sensor_data)
+                    mytimeout = 2;
     elif exercise_code == 'exer_05': #Toe Raises
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -805,19 +885,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -876,20 +985,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_06': #Heel Raises
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -902,19 +1016,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -972,20 +1115,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_07': #Seated Marching Spot
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -997,19 +1145,71 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1067,20 +1267,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_08': #Sit To Stand
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1092,19 +1297,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1164,20 +1398,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_09': #Standing Balance
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1190,7 +1429,8 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                         received_body_parts.add(body_part);
                     
                     if (received_body_parts == expected_body_parts):
-                        condition_met = True;   
+                        condition_met = True;
+                        mytimeout=2; 
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -1245,20 +1485,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_10': #Balance Foam
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1272,6 +1517,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -1327,20 +1573,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_11': #Standing Bend Over
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1352,19 +1603,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1421,20 +1701,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_12': #Standing Turn
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 5 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1446,19 +1731,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1502,20 +1816,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_13': #Lateral Weight Shifts
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1527,19 +1846,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1598,20 +1946,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_14': #Limits of Stability
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 2 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1625,6 +1978,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -1681,20 +2035,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(25);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_15': #Forward Reach
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1706,19 +2065,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1778,20 +2166,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_16': #Forward walking
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1803,19 +2196,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1855,20 +2277,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_17': #Forward Walking Yaw
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1880,19 +2307,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -1932,20 +2388,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_18': #Forward Walking Tilt
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -1957,19 +2418,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2009,20 +2499,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_19':#Side Stepping
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try :
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout = 40)  # Read data from the dataQueue
+                data = q.get(timeout = mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2034,19 +2529,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2086,20 +2610,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_20': #Walking Scanning
         condition_met = False;
         start_time = time.time();
+        mytimeout=40;
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2113,6 +2642,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -2162,20 +2692,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         metrics_queue.put(final_metrics)
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_21': #Hip External
         condition_met = False;
         start_time = time.time();
+        mytimeout=40;
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2187,19 +2722,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2239,20 +2803,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_22':#Lateral Trunk Flexion
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 60):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=60)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2264,19 +2833,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2316,20 +2914,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_23': #Calf Stretch
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2341,19 +2944,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2393,20 +3025,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_24': #Overhead Reach
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2418,19 +3055,48 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     if body_part in expected_body_parts:
                         received_body_parts.add(body_part);
                     
-                    if (received_body_parts == expected_body_parts):
-                        condition_met = True;
-                        scheduleQueue.put('startcounting')
-                        # Fetch the relevant lists and queues from imu_data
+                    if not condition_met:
+                            print(f"First IMU connected: {body_part}. Proceeding with analysis.")
+                            condition_met = True
+                            mytimeout =2;
+                            scheduleQueue.put('startcounting')
+                    
+                    if condition_met: 
+                        scheduleQueue.put('startcounting')       
+                        # 1. Identify all IMUs that have *not* connected yet
+                        missing_body_parts = expected_body_parts - received_body_parts
+                        
+                        # 2. Process the REAL data from the connected IMU
                         if body_part in imu_data:
                             imu_list, imu_queue, imu_finalqueue = imu_data[body_part]
-
-                            # Add the sensor data to the appropriate structures
                             imu_list.append(sensor_data)
                             imu_queue.put(sensor_data)
                             imu_finalqueue.put(sensor_data)
                         else:
                             print(f"Unrecognized body part: {body_part}")
+
+                        # 3. Generate and process ARTIFICIAL data for all missing IMUs
+                        for missing_part in missing_body_parts:
+                            # Create a new SensorData object with the same data
+                            # but the MAC address of the missing part.
+                            artificial_data = SensorData(
+                                device_mac_address=missing_part,
+                                timestamp=sensor_data.timestamp,
+                                w=sensor_data.w,
+                                x=sensor_data.x,
+                                y=sensor_data.y,
+                                z=sensor_data.z
+                            )
+                            
+                            # Add the artificial data to the correct queues
+                            if missing_part in imu_data:
+                                imu_list, imu_queue, imu_finalqueue = imu_data[missing_part]
+                                imu_list.append(artificial_data)
+                                imu_queue.put(artificial_data)
+                                imu_finalqueue.put(artificial_data)
+                            else:
+                                # This should not happen if imu_data is set up correctly
+                                print(f"Logic Error: {missing_part} is expected but not in imu_data dict.")
 
                         # Check if there is something in the schedule queue
                         if not scheduleQueue.empty():
@@ -2487,21 +3153,26 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
 
     elif exercise_code == 'exer_25': #Side_Bend
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while INTERVALS < 4 or not q.empty():
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2515,6 +3186,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
@@ -2582,20 +3254,25 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                         scheduleQueue.put(("data_zip", data_zip_path))
                                     break;
             except Exception as e:
-                print("check data stream")
-                send_voice_instructions(client, "bph0082")
-                time.sleep(40);
-                send_voice_instructions(client, "bph0083")
-                break;
+                if (not condition_met):
+                    print("check data stream")
+                    send_voice_instructions(client, "bph0082")
+                    time.sleep(40);
+                    send_voice_instructions(client, "bph0083")
+                    break;
+                else:
+                    q.put(data);
+                    mytimeout = 2;
     elif exercise_code == 'exer_28':
         condition_met = False;
+        mytimeout=40;
         start_time = time.time();
         while (not q.empty()) or INTERVALS <= 5:
             try:
                 if not condition_met and (time.time() - start_time > 40):
                     raise TimeoutError("Timeout: expected body parts not received")
 
-                data = q.get(timeout=40)  # Read data from the dataQueue
+                data = q.get(timeout=mytimeout)  # Read data from the dataQueue
 
                 if ":" in data:  # Check for valid sensor data format
                     # Convert JSON data to SensorData object
@@ -2609,6 +3286,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                     
                     if (received_body_parts == expected_body_parts):
                         condition_met = True;
+                        mytimeout=2;
                         scheduleQueue.put('startcounting')
                         # Fetch the relevant lists and queues from imu_data
                         if body_part in imu_data:
