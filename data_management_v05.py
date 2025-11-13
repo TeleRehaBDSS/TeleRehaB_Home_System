@@ -1461,7 +1461,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                 )
                                 
                                 metrics_dict = json.loads(metrics)
-                                if (INTERVALS==2) and metrics_dict["total_metrics"]["number_of_movements"]>2:
+                                if (INTERVALS==2) and metrics_dict["total_metrics"]["number_of_movements"]>12:
                                     send_voice_instructions(client, "bph0053")
                                 
                                 scheduleQueue.get()  # Consume the scheduled task
@@ -1549,7 +1549,7 @@ def receive_imu_data(q, scheduleQueue, config_message, exercise,metrics_queue,ct
                                 )
 
                                 metrics_dict = json.loads(metrics)
-                                if (INTERVALS==2) and metrics_dict["total_metrics"]["number_of_movements"]>2:
+                                if (INTERVALS==2) and metrics_dict["total_metrics"]["number_of_movements"]>12:
                                     send_voice_instructions(client, "bph0053")
                                 
                                 scheduleQueue.get()  # Consume the scheduled task
