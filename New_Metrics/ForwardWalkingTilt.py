@@ -41,8 +41,8 @@ def gaitanalysis(left_imu,right_imu,plotdiagrams):
 
     print("Start Time:", start_time)
     print("End Time:", end_time)
-    # print("Left IMU Data Period After Cropping:", left_imu['Timestamp'].min(), "to", left_imu['Timestamp'].max())
-    # print("Right IMU Data Period After Cropping:", right_imu['Timestamp'].min(), "to", right_imu['Timestamp'].max())
+    #print("Left IMU Data Period After Cropping:", left_imu['Timestamp'].min(), "to", left_imu['Timestamp'].max())
+    #print("Right IMU Data Period After Cropping:", right_imu['Timestamp'].min(), "to", right_imu['Timestamp'].max())
 
     # Calculate the magnitude of the linear acceleration
     left_imu['Magnitude'] = np.sqrt(left_imu['X(number)']**2 + left_imu['Y (number)']**2 + left_imu['Z (number)']**2)
@@ -381,6 +381,7 @@ def gaitanalysis(left_imu,right_imu,plotdiagrams):
             print(f"Skipping index {i} due to insufficient data: {e}")
             continue
 
+
         right_stance_phase_durations.append((t6 - t1).total_seconds())
         left_stance_phase_durations.append((t2 - t5).total_seconds() if i + 1 < len(left_hs_indices) else None)
         right_load_response_times.append((t2 - t1).total_seconds())
@@ -391,20 +392,6 @@ def gaitanalysis(left_imu,right_imu,plotdiagrams):
         left_terminal_stance_times.append((t7 - t6).total_seconds() if i * 2 + 2 < len(intersection_times) else None)
         left_pre_swing_phase_times.append((t1_next - t7).total_seconds() if i * 2 + 2 < len(intersection_times) else None)
         left_gait_cycle_times.append((t2 - common_time[left_to_indices[i - 1]]).total_seconds() if i - 1 >= 0 else None)
-
-    # Print new gait metrics
-
-    # print(f"Right Stance Phase Durations: {right_stance_phase_durations}")
-    # print(f"Left Stance Phase Durations: {left_stance_phase_durations}")
-    # print(f"Right Load Response Times: {right_load_response_times}")
-    # print(f"Right Terminal Stance Times: {right_terminal_stance_times}")
-    # print(f"Right Pre-Swing Times: {right_pre_swing_times}")
-    # print(f"Right Gait Cycle Times: {right_gait_cycle_times}")
-    # print(f"Left Loading Response Times: {left_loading_response_times}")
-    # print(f"Left Terminal Stance Times: {left_terminal_stance_times}")
-    # print(f"Left Pre-Swing Phase Times: {left_pre_swing_phase_times}")
-    # print(f"Left Gait Cycle Times: {left_gait_cycle_times}")
-
 
     if(plotdiagrams):
 
@@ -453,6 +440,7 @@ def gaitanalysis(left_imu,right_imu,plotdiagrams):
 
     metrics_data = {
         "total_metrics": {
+            "number_of_steps": len(step_times),
             "stride_times": stride_times,
             "mean_stride_time": np.mean(stride_times) if stride_times else None,
             "std_stride_time": np.std(stride_times) if stride_times else None,
