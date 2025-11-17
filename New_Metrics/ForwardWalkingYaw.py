@@ -454,6 +454,7 @@ def gaitanalysis(left_imu,right_imu,plotdiagrams):
 
     metrics_data = {
         "total_metrics": {
+            "number_of_steps": len(step_times),
             "stride_times": stride_times,
             "mean_stride_time": np.mean(stride_times) if stride_times else None,
             "std_stride_time": np.std(stride_times) if stride_times else None,
