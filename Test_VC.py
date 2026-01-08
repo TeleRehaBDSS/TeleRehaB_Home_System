@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt
 import paho.mqtt.client as mqtt
 
 MQTT_PORT = 1883
-MQTT_TOPIC = "exercise/demo"
+MQTT_TOPIC = "exercise@LOCAL/demo"
 
 class MQTTExerciseApp(QWidget):
     def __init__(self):
