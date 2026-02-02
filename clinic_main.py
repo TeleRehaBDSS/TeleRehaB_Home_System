@@ -363,7 +363,7 @@ def runScenario(queueData):
 
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
-    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=False)
+    client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=True)
     time.sleep(4)
     client.publish(ACK_TOPIC, payload="ack", qos=1)
 
@@ -372,17 +372,11 @@ def runScenario(queueData):
     client.publish(f'TELEREHAB@{clinic_id}/StopRecording', 'STOP_RECORDING')
     time.sleep(2)
     print("Waiting for app to connect...")
-    t0 = time.time()
-    
     while not app_connected.value:
-        if time.time() - t0 > 40:
-            logger.error("Timeout waiting for app connection. Exiting.")
-            send_exit(client)
-            return
-        time.sleep(2)  # slower => less spam
-        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=False)
-    
+        time.sleep(1)
+        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1)
     print("App connected, continuing...")
+    app_connected.value = False  # Reset for next use
 
     try:
         time.sleep(2)
