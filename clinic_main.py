@@ -611,7 +611,10 @@ def runScenario(queueData):
                             data_zip_path = msg[1]
                             break
                     if data_zip_path:
-                        upload_file(data_zip_path, "Data")
+                        try:
+                            upload_file(data_zip_path, "Data")
+                        except Exception as e:
+                            logger.error(f"Failed to upload data zip due to network issue: {e}")
                     # Terminate the scheduler process
                     
                     scheduleQueue.put("EXIT_NO_DATA");
