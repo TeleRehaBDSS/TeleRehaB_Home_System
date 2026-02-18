@@ -57,7 +57,7 @@ TOPIC_PONG = f"healthcheck@{clinic_id}/IAMALIVE"
 camera_result = mp.Manager().dict()
 polar_result = mp.Manager().dict()
 
-def wait_for_app_or_give_up(client, clinic_id, max_tries=15, interval=1.0):
+def wait_for_app_or_give_up(client, clinic_id, max_tries=5, interval=1.0):
     """
     Περιμένει να γίνει app_connected True.
     Στέλνει STARTVC έως max_tries φορές.
