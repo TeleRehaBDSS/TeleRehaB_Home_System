@@ -57,6 +57,21 @@ TOPIC_PONG = f"healthcheck@{clinic_id}/IAMALIVE"
 camera_result = mp.Manager().dict()
 polar_result = mp.Manager().dict()
 
+def wait_for_app_or_give_up(client, clinic_id, max_tries=15, interval=1.0):
+    """
+    Περιμένει να γίνει app_connected True.
+    Στέλνει STARTVC έως max_tries φορές.
+    Επιστρέφει True αν συνδέθηκε, False αν έληξαν οι προσπάθειες.
+    """
+    for i in range(1, max_tries + 1):
+        if app_connected.value:
+            return True
+        client.publish(f"TELEREHAB@{clinic_id}/STARTVC", "STARTVC", qos=1, retain=True)
+        logger.info(f"STARTVC attempt {i}/{max_tries}")
+        time.sleep(interval)
+
+    logger.warning(f"App did not connect after {max_tries} STARTVC attempts. Continuing anyway.")
+    return False
 
 def start_broadcast_process():
     p = mp.Process(target=broadcast_ip)
@@ -371,12 +386,13 @@ def runScenario(queueData):
     client.publish(f'TELEREHAB@{clinic_id}/StopRecording', 'STOP_RECORDING')
     time.sleep(2)
     print("Waiting for app to connect...")
-    while not app_connected.value:
-        time.sleep(1)
-        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1)
-    print("App connected, continuing...")
-    app_connected.value = False  # Reset for next use
-
+    connected = wait_for_app_or_give_up(client, clinic_id, max_tries=15, interval=1.0)
+    
+    if connected:
+        print("App connected, continuing...")
+        app_connected.value = False  # reset μόνο όταν όντως συνδέθηκε
+    else:
+        print("App NOT connected after 15 tries. Continuing scenario (no block).")
 
     try:
         time.sleep(2)
