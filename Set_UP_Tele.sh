@@ -364,6 +364,10 @@ After=network-online.target
 Type=oneshot
 User=$CURRENT_USER
 ExecStart=/bin/bash -lc '$UPDATE_SCRIPT_PATH'
+Restart=on-failure
+RestartSec=2
+StartLimitIntervalSec=30
+StartLimitBurst=5
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -376,7 +380,7 @@ cat <<EOF
 [Unit]
 Description=MQTT Heartbeat Checker
 After=telerehab-update.service mosquitto.service
-Requires=telerehab-update.service mosquitto.service
+Wants=telerehab-update.service mosquitto.service
 [Service]
 Type=simple
 User=$CURRENT_USER
