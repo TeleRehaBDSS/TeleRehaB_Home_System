@@ -1021,9 +1021,34 @@ def get_metrics(imu1,imu2,imu3,imu4, counter):
     if (c >= 4):
         Limu4 = processed_dataframes[3]
 
-    if(len(Limu1)>0 and len(Limu2) > 0):
+    if len(Limu1) > 0 and len(Limu2) > 0:
         returnedJson = getMetricsSittingNew01(Limu1, Limu2, False) 
         return returnedJson
+    else:
+        # Fallback if no data to process
+        empty_metrics = {
+            "total_metrics": {
+                "number_of_movements": 0,
+                "pace_movements_per_second": 0.0,
+                "mean_range_degrees": 0.0,
+                "std_range_degrees": 0.0,
+                "mean_duration_seconds": 0.0,
+                "std_duration_seconds": 0.0,
+                "mean_stand_time_seconds": 0.0,
+                "std_stand_time_seconds": 0.0,
+                "exercise_duration_seconds": 0.0,
+                "mean_peak_angular_velocity": 0.0,
+                "std_peak_angular_velocity": 0.0,
+                "early_mean_duration_seconds": 0.0,
+                "late_mean_duration_seconds": 0.0
+            },
+            "per_rep_velocity_curves_deg_per_s": [],
+            "per_rep_peak_angular_velocity_deg_per_s": [],
+            "per_rep_durations_seconds": [],
+            "head_trace_w": [],
+            "head_min_w": {"time_s": 0.0, "w": 0.0}
+        }
+        return json.dumps(empty_metrics, indent=4)
 
 def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
     showplot = plotdiagrams
@@ -1056,6 +1081,9 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
     
     final_movements = []
     stand_durations = []
+    per_rep_velocity_curves = []
+    per_rep_peak_angular_velocity = []
+    per_rep_durations_seconds = []
     i = 0
     
     while i < len(valleys) - 1:                        
@@ -1076,6 +1104,17 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
                     "stand_time": timestamps.iloc[end_sit] - timestamps.iloc[stand_peak]  # Time standing
                 })
                 stand_durations.append(timestamps.iloc[end_sit] - timestamps.iloc[stand_peak])
+
+                # Per-rep velocity curve (deg/s) on the smoothed signal
+                seg = smoothed_signal.iloc[start_bend:end_sit+1]
+                if len(seg) > 1:
+                    fs_rep = 50  # assumed sampling for this processed trace
+                    ang_vel = np.gradient(seg) * fs_rep
+                    per_rep_peak_angular_velocity.append(float(np.nanmax(np.abs(ang_vel))))
+                    x_old = np.linspace(0, 1, len(ang_vel))
+                    x_new = np.linspace(0, 1, 100)
+                    per_rep_velocity_curves.append(np.interp(x_new, x_old, ang_vel).tolist())
+                per_rep_durations_seconds.append(float(timestamps.iloc[end_sit] - timestamps.iloc[start_bend]))
             
             i = valleys.tolist().index(end_sit)
         except StopIteration:
@@ -1099,12 +1138,43 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
         plt.grid()
         plt.show()
     
+    # Compute per-rep peak angular velocity
+    ang_vel = np.gradient(smoothed_signal, timestamps)
+    peak_velocities = []
+    for move in final_movements:
+        start = (timestamps >= move["start_time"]) & (timestamps <= move["end_time"])
+        if start.any():
+            peak_velocities.append(np.nanmax(np.abs(ang_vel[start])))
+
     # Compute metrics
     if final_movements:
         durations = [m['duration'] for m in final_movements]
         ranges = [m['range_degrees'] for m in final_movements]
         exercise_duration =(df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds()
         
+        # Early vs late durations (bar chart ready)
+        half = max(1, len(per_rep_durations_seconds) // 2)
+        early_mean = float(np.mean(per_rep_durations_seconds[:half])) if per_rep_durations_seconds else 0
+        late_mean = float(np.mean(per_rep_durations_seconds[half:])) if per_rep_durations_seconds[half:] else 0
+
+        # Head trajectory (W component) for lean visualization
+        head_trace_w = []
+        if len(df_Limu1) > 0:
+            t0 = df_Limu1.index[0]
+            max_pts = 500
+            idx = np.linspace(0, len(df_Limu1) - 1, min(max_pts, len(df_Limu1)), dtype=int)
+            head_trace_w = [
+                {"time_s": float((df_Limu1.index[i] - t0).total_seconds()), "w": float(df_Limu1['W(number)'].iloc[i])}
+                for i in idx
+            ]
+            min_idx = df_Limu1['W(number)'].idxmin()
+            head_min_w = {
+                "time_s": float((min_idx - t0).total_seconds()),
+                "w": float(df_Limu1.loc[min_idx, 'W(number)'])
+            }
+        else:
+            head_min_w = {"time_s": 0.0, "w": 0.0}
+
         metrics_data = {
             "total_metrics" :{
             "number_of_movements": len(final_movements),
@@ -1115,22 +1185,40 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
             "std_duration_seconds": np.std(durations)/1000000.0,
             "mean_stand_time_seconds": np.mean(stand_durations)/1000000.0,
             "std_stand_time_seconds": np.std(stand_durations)/1000000.0,
-            "exercise_duration_seconds": exercise_duration
-        }
+            "exercise_duration_seconds": exercise_duration,
+            "mean_peak_angular_velocity": float(np.mean(peak_velocities)) if peak_velocities else 0,
+            "std_peak_angular_velocity": float(np.std(peak_velocities)) if peak_velocities else 0,
+            "early_mean_duration_seconds": early_mean,
+            "late_mean_duration_seconds": late_mean
+        },
+        "per_rep_velocity_curves_deg_per_s": per_rep_velocity_curves,            # for pelvis velocity overlays
+        "per_rep_peak_angular_velocity_deg_per_s": per_rep_peak_angular_velocity, # for histograms/peaks
+        "per_rep_durations_seconds": per_rep_durations_seconds,                  # for per-rep bars
+        "head_trace_w": head_trace_w,                                            # for head trajectory plot
+        "head_min_w": head_min_w                                                 # start->max lean marker
         }
     else:
         metrics_data = {
-            "total_metrics" :{
-            "number_of_movements": 0,
-            "pace_movements_per_second": 0,
-            "mean_range_degrees": 0,
-            "std_range_degrees": 0,
-            "mean_duration_seconds": 0,
-            "std_duration_seconds": 0,
-            "mean_stand_time_seconds": 0,
-            "std_stand_time_seconds": 0,
-            "exercise_duration_seconds": 0
-        }
+            "total_metrics": {
+                "number_of_movements": 0,
+                "pace_movements_per_second": 0.0,
+                "mean_range_degrees": 0.0,
+                "std_range_degrees": 0.0,
+                "mean_duration_seconds": 0.0,
+                "std_duration_seconds": 0.0,
+                "mean_stand_time_seconds": 0.0,
+                "std_stand_time_seconds": 0.0,
+                "exercise_duration_seconds": (df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds() if len(df_Limu1) > 0 else 0.0,
+                "mean_peak_angular_velocity": 0.0,
+                "std_peak_angular_velocity": 0.0,
+                "early_mean_duration_seconds": 0.0,
+                "late_mean_duration_seconds": 0.0
+            },
+            "per_rep_velocity_curves_deg_per_s": [],
+            "per_rep_peak_angular_velocity_deg_per_s": [],
+            "per_rep_durations_seconds": [],
+            "head_trace_w": [],
+            "head_min_w": {"time_s": 0.0, "w": 0.0}
         }
     
     print(metrics_data)
