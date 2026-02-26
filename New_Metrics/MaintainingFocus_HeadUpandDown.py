@@ -170,86 +170,102 @@ def get_metrics(imu1,imu2,imu3,imu4, counter):
         return returnedJson
 
 def getMetricsSittingOld02(Limu1, plotdiagrams):
-   
-    columns = ['Timestamp', 'elapsed(time)',  'W(number)', 'X(number)', 'Y(number)', 'Z(number)']
+    import numpy as np
+    import pandas as pd
+    import json
+    import matplotlib.pyplot as plt
+    from scipy.spatial.transform import Rotation as R
+    from scipy.signal import find_peaks
+
+    # ---------------- helpers ----------------
+    def _resample_1d(arr, target_len):
+        arr = np.asarray(arr, dtype=float)
+        if len(arr) == 0:
+            return np.zeros(target_len, dtype=float)
+        if len(arr) == 1:
+            return np.full(target_len, arr[0], dtype=float)
+        x_old = np.linspace(0.0, 1.0, len(arr))
+        x_new = np.linspace(0.0, 1.0, target_len)
+        return np.interp(x_new, x_old, arr)
+
+    # ---------------- df ----------------
+    columns = ['Timestamp', 'elapsed(time)', 'W(number)', 'X(number)', 'Y(number)', 'Z(number)']
     df_Limu1 = pd.DataFrame(Limu1, columns=columns)
     df_Limu1['Timestamp'] = pd.to_datetime(df_Limu1['Timestamp'])
     df_Limu1 = df_Limu1.sort_values(by='Timestamp')
     df_Limu1.set_index('Timestamp', inplace=True)
-    
 
-    if (plotdiagrams):
-        plt.figure(figsize=(10, 6))
-        plt.xlabel('Timestamp')
-        plt.ylabel('Quaternion Components')
-        plt.title('Quaternion Components (W, X, Y, Z) over Time')
-        plt.legend()
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-
-        plt.savefig('quaternion_components_plot!!!!!!!.png')
-        #plt.show()
-    
+    # ---------------- quaternion -> euler (deg) ----------------
     quaternions = df_Limu1[['X(number)', 'Y(number)', 'Z(number)', 'W(number)']].to_numpy()
     rotations = R.from_quat(quaternions)
-    euler_angles = rotations.as_euler('xyz', degrees=False)
-    euler_df = pd.DataFrame(euler_angles, columns=['Roll (rad)', 'Pitch (rad)', 'Yaw (rad)'])
     euler_angles_degrees = rotations.as_euler('xyz', degrees=True)
-    euler_df_degrees = pd.DataFrame(euler_angles_degrees, columns=['Roll (degrees)', 'Pitch (degrees)', 'Yaw (degrees)'])
-   
-    
-    if (plotdiagrams):
+    euler_df_degrees = pd.DataFrame(
+        euler_angles_degrees,
+        columns=['Roll (degrees)', 'Pitch (degrees)', 'Yaw (degrees)'],
+        index=df_Limu1.index
+    )
+
+    if plotdiagrams:
         plt.figure(figsize=(12, 8))
         plt.plot(euler_df_degrees.index, euler_df_degrees['Roll (degrees)'], label='Roll', linewidth=1)
         plt.plot(euler_df_degrees.index, euler_df_degrees['Pitch (degrees)'], label='Pitch', linewidth=1)
         plt.plot(euler_df_degrees.index, euler_df_degrees['Yaw (degrees)'], label='Yaw', linewidth=1)
-
         plt.xlabel('Timestamp')
         plt.ylabel('Euler Angles (degrees)')
         plt.title('Euler Angles (Roll, Pitch, Yaw) over Time')
         plt.legend()
         plt.xticks(rotation=45)
-        plt.tight_layout()  
+        plt.tight_layout()
         plt.show()
 
+    # ---------------- filter pitch (head up/down) ----------------
     fs = 50
     cutoff = 0.75
+    pitch = euler_df_degrees['Pitch (degrees)'].to_numpy()
+    pitch_filtered = butter_lowpass_filter(pitch, cutoff, fs, order=5)
 
-    pitch_filtered = butter_lowpass_filter(euler_df_degrees['Pitch (degrees)'], cutoff, fs, order=5)
-    if (plotdiagrams):
+    if plotdiagrams:
         plt.figure(figsize=(12, 6))
-        plt.plot(euler_df_degrees.index, euler_df_degrees['Pitch (degrees)'], label='Original Pitch', linewidth=1, alpha=0.5)
-        plt.plot(euler_df_degrees.index, pitch_filtered, label='Filtered Yaw', linewidth=2)
+        plt.plot(euler_df_degrees.index, pitch, label='Original Pitch', linewidth=1, alpha=0.5)
+        plt.plot(euler_df_degrees.index, pitch_filtered, label='Filtered Pitch', linewidth=2)
         plt.xlabel('Timestamp')
         plt.ylabel('Pitch (degrees)')
         plt.title('Pitch Signal Filtering')
         plt.legend()
         plt.show()
 
+    # ---------------- detect peaks/valleys ----------------
     peaks, _ = find_peaks(pitch_filtered)
-
     valleys, _ = find_peaks(-pitch_filtered)
 
-    # print("peaks ", peaks)
-    # print("valleys ", valleys)
-    if(len(peaks) == 0):
-        return 0
-    if(len(valleys) == 0):
-        return 0
+    if len(peaks) == 0 or len(valleys) == 0:
+        total_duration_seconds = float((df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds())
+        return json.dumps({
+            "total_metrics": {
+                "number_of_movements": 0,
+                "pace_movements_per_second": 0.0,
+                "mean_range_degrees": 0.0,
+                "std_range_degrees": 0.0,
+                "mean_duration_seconds": 0.0,
+                "std_duration_seconds": 0.0,
+                "exercise_duration_seconds": total_duration_seconds
+            },
+            "velocity_curves_deg_per_s": [],
+            "velocity_mean_curve_deg_per_s": [],
+            "velocity_std_curve_deg_per_s": [],
+            "peak_velocities_deg_per_s": [],
+            "rom_peaks": []
+        }, indent=4)
 
+    # enforce valley -> peak pairing
     if valleys[0] > peaks[0]:
-        peaks = peaks[1:]  
-    if peaks[-1] < valleys[-1]:
-        valleys = valleys[:-1]  
-        
-    movement_pairs = []
+        peaks = peaks[1:]
+    if len(peaks) > 0 and len(valleys) > 0 and peaks[-1] < valleys[-1]:
+        valleys = valleys[:-1]
 
-    for i in range(min(len(peaks), len(valleys))):
-        movement_pairs.append((valleys[i], peaks[i]))
+    movement_pairs = [(valleys[i], peaks[i]) for i in range(min(len(peaks), len(valleys)))]
 
-    #print("Movement pairs (as index positions):", movement_pairs)
-
-    if (plotdiagrams):
+    if plotdiagrams:
         plt.figure(figsize=(12, 6))
         plt.plot(pitch_filtered, label='Filtered Pitch', linewidth=1)
         plt.plot(peaks, pitch_filtered[peaks], "x", label='Maxima')
@@ -260,53 +276,91 @@ def getMetricsSittingOld02(Limu1, plotdiagrams):
         plt.legend()
         plt.show()
 
-    movement_ranges = []
+    # ---------------- ranges + filter significant ----------------
+    movement_ranges = [float(pitch_filtered[p] - pitch_filtered[v]) for v, p in movement_pairs]
+    significant = [(pair, rng) for pair, rng in zip(movement_pairs, movement_ranges) if rng >= 5.0]
 
-    for valley, peak in movement_pairs:
-        movement_range = pitch_filtered[peak] - pitch_filtered[valley]
-        movement_ranges.append(movement_range)
+    filtered_pairs = [pair for pair, _ in significant]
+    filtered_ranges = [rng for _, rng in significant]
 
-    # for i, movement_range in enumerate(movement_ranges):
-    #     print(f"Movement {i+1}: Range = {movement_range:.2f} degrees")
-    significant_movements = [(pair, mrange) for pair, mrange in zip(movement_pairs, movement_ranges) if mrange >= 5]
-
-    filtered_pairs = [pair for pair, range in significant_movements]
-    filtered_ranges = [mrange for pair, mrange in significant_movements]
-
-    # for i, (pair, mrange) in enumerate(significant_movements):
-    #     print(f"Significant Movement {i+1}: Pair = {pair}, Range = {mrange:.2f} degrees")
-
+    # ---------------- durations + total metrics ----------------
     movement_durations = []
+    for s, e in filtered_pairs:
+        start_time = df_Limu1.iloc[s].name
+        end_time = df_Limu1.iloc[e].name
+        movement_durations.append(float((end_time - start_time).total_seconds()))
 
-    for start, end in filtered_pairs:
-        start_time = df_Limu1.iloc[start].name
-        end_time = df_Limu1.iloc[end].name
-        duration = (end_time - start_time).total_seconds()
-        movement_durations.append(duration)
+    total_duration_seconds = float((df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds())
+    pace = float(len(filtered_pairs) / total_duration_seconds) if total_duration_seconds > 0 else 0.0
 
-    total_duration_seconds = (df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds()
+    mean_range = float(np.mean(filtered_ranges)) if len(filtered_ranges) > 0 else 0.0
+    std_range = float(np.std(filtered_ranges, ddof=1)) if len(filtered_ranges) >= 2 else 0.0
 
-    if (total_duration_seconds > 0):
-        pace = len(filtered_pairs) / total_duration_seconds  
+    mean_duration = float(np.mean(movement_durations)) if len(movement_durations) > 0 else 0.0
+    std_duration = float(np.std(movement_durations, ddof=1)) if len(movement_durations) >= 2 else 0.0
+
+    # ==========================================================
+    # NEW METRICS (same schema as you requested for head pitch)
+    # ==========================================================
+    pitch_filtered = np.asarray(pitch_filtered, dtype=float)
+
+    t0 = df_Limu1.index[0]
+    t_sec = np.array([(ts - t0).total_seconds() for ts in df_Limu1.index], dtype=float)
+
+    # sample-wise velocity (deg/s)
+    vel_samples = np.abs(np.diff(pitch_filtered)) * fs
+    vel_t_sec = t_sec[1:]
+
+    # (A) per-1-second peak velocity curve
+    n_bins = int(np.ceil(total_duration_seconds)) + 1
+    velocity_curves_deg_per_s = [0.0] * n_bins
+
+    if len(vel_samples) > 0:
+        bin_idx = np.floor(vel_t_sec).astype(int)
+        valid = (bin_idx >= 0) & (bin_idx < n_bins)
+        bin_idx = bin_idx[valid]
+        v = vel_samples[valid]
+        for b in np.unique(bin_idx):
+            velocity_curves_deg_per_s[b] = float(np.max(v[bin_idx == b]))
+
+    # (B) per-movement velocity curves -> mean/std curve
+    TARGET_LEN = 101
+    movement_velocity_curves = []
+    peak_velocities_deg_per_s = []
+    rom_peaks = []
+
+    for start_idx, end_idx in filtered_pairs:
+        s = max(int(start_idx), 0)
+        e = min(int(end_idx), len(pitch_filtered) - 1)
+        if e <= s:
+            continue
+
+        vel_seg = vel_samples[s:max(e, 1)]
+        if len(vel_seg) == 0:
+            vel_seg = np.array([0.0], dtype=float)
+
+        peak_velocities_deg_per_s.append(float(np.max(vel_seg)))
+        movement_velocity_curves.append(_resample_1d(vel_seg, TARGET_LEN))
+
+        rom_peaks.append({
+            "peak_deg": float(pitch_filtered[e]),
+            "peak_time_s": float(t_sec[e]),
+            "valley_deg": float(pitch_filtered[s]),
+            "valley_time_s": float(t_sec[s]),
+        })
+
+    if len(movement_velocity_curves) == 0:
+        velocity_mean_curve_deg_per_s = [0.0] * TARGET_LEN
+        velocity_std_curve_deg_per_s = [0.0] * TARGET_LEN
     else:
-        pace = -1;
+        M = np.vstack(movement_velocity_curves)
+        velocity_mean_curve_deg_per_s = [float(x) for x in np.mean(M, axis=0)]
+        if M.shape[0] >= 2:
+            velocity_std_curve_deg_per_s = [float(x) for x in np.std(M, axis=0, ddof=1)]
+        else:
+            velocity_std_curve_deg_per_s = [0.0] * TARGET_LEN
 
-    if (len(filtered_ranges) > 0):
-        mean_range = np.mean(filtered_ranges)
-        std_range = np.std(filtered_ranges, ddof=1) 
-    else:
-        mean_range = -1;
-        std_range = -1;
-
-    if (len(movement_durations) > 0):
-        mean_duration = np.mean(movement_durations)
-        std_duration = np.std(movement_durations, ddof=1)
-    else:
-        mean_duration = -1
-        std_duration = -1        
-
-
-
+    # ---------------- final json (EXACT keys) ----------------
     metrics_data = {
         "total_metrics": {
             "number_of_movements": int(len(filtered_pairs)),
@@ -315,10 +369,13 @@ def getMetricsSittingOld02(Limu1, plotdiagrams):
             "std_range_degrees": float(std_range),
             "mean_duration_seconds": float(mean_duration),
             "std_duration_seconds": float(std_duration),
-            "exercise_duration_seconds":total_duration_seconds
-        }
+            "exercise_duration_seconds": float(total_duration_seconds)
+        },
+        "velocity_curves_deg_per_s": [float(x) for x in velocity_curves_deg_per_s],
+        "velocity_mean_curve_deg_per_s": [float(x) for x in velocity_mean_curve_deg_per_s],
+        "velocity_std_curve_deg_per_s": [float(x) for x in velocity_std_curve_deg_per_s],
+        "peak_velocities_deg_per_s": [float(x) for x in peak_velocities_deg_per_s],
+        "rom_peaks": rom_peaks
     }
-    print (metrics_data)
 
     return json.dumps(metrics_data, indent=4)
-
