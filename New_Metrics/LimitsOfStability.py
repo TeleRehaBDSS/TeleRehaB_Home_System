@@ -23,6 +23,30 @@ def quaternion_to_euler(w, x, y, z):
     roll, pitch, yaw = rotation.as_euler('xyz', degrees=True)  # 'xyz' corresponds to roll, pitch, yaw
     return roll, pitch, yaw
 
+def rom_directions_from_euler(roll_deg, pitch_deg):
+    """ROM per direction (deg) for radar plots."""
+    if len(roll_deg) == 0 or len(pitch_deg) == 0:
+        return {"forward": 0.0, "backward": 0.0, "right": 0.0, "left": 0.0}
+    
+    # Use explicit check for NaNs to avoid warnings
+    roll_clean = roll_deg[np.isfinite(roll_deg)]
+    pitch_clean = pitch_deg[np.isfinite(pitch_deg)]
+    
+    if len(roll_clean) == 0 or len(pitch_clean) == 0:
+        return {"forward": 0.0, "backward": 0.0, "right": 0.0, "left": 0.0}
+
+    roll_pos = np.max(roll_clean)
+    roll_neg = abs(np.min(roll_clean))
+    pitch_pos = np.max(pitch_clean)
+    pitch_neg = abs(np.min(pitch_clean))
+    
+    return {
+        "forward": float(pitch_pos),
+        "backward": float(pitch_neg),
+        "right": float(roll_pos),
+        "left": float(roll_neg)
+    }
+
 def process_imu_data(imu_data_lists, fs, plotdiagrams=True):
     # Ensure lists are not empty and convert to DataFrames
     dataframes = []
@@ -130,6 +154,19 @@ def plotIMUDATA(Limu, x, filename):
     plt.xlabel('Time (sec)')
     plt.ylabel('W component of quaternion')
     plt.grid(True)  
+
+def rom_directions_from_euler(roll_deg, pitch_deg):
+    """ROM per direction (deg) for radar plots."""
+    roll_pos = np.nanmax(roll_deg) if len(roll_deg) else 0
+    roll_neg = abs(np.nanmin(roll_deg)) if len(roll_deg) else 0
+    pitch_pos = np.nanmax(pitch_deg) if len(pitch_deg) else 0
+    pitch_neg = abs(np.nanmin(pitch_deg)) if len(pitch_deg) else 0
+    return {
+        "forward": float(pitch_pos),
+        "backward": float(pitch_neg),
+        "right": float(roll_pos),
+        "left": float(roll_neg)
+    }
 
 
 # def interpolate_imu_data(imu_data, starttime, endtime, N):
@@ -249,6 +286,26 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
             durations.append(time_diff)
             amplitudes.append(amplitude_diff)
 
+    if (len(durations) == 0):
+        # Handle case with no significant movements
+        metrics_data = {
+            "total_metrics": {
+                "number_of_movements": 0,
+                "pace_movements_per_second": 0.0,
+                "mean_combined_range_degrees": 0.0,
+                "std_combined_range_degrees": 0.0,
+                "mean_duration_seconds": 0.0,
+                "std_duration_seconds": 0.0,
+                "exercise_duration_seconds": exercise_duration
+            },
+            "rom_directions_degrees": rom_directions_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy())
+        }
+        print(metrics_data)
+        datetime_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"{datetime_string}_AnteroposteriorDirection_metrics.txt"
+        save_metrics_to_txt(metrics_data, filename)
+        return json.dumps(metrics_data, indent=4)
+
     # Plot detected movements if requested
     if plotdiagrams:
         plt.figure(figsize=(12, 6))
@@ -269,6 +326,9 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
     mean_duration_seconds = np.mean(durations) if durations else 0
     std_duration_seconds = np.std(durations) if durations else 0
 
+    # ROM per direction (for radar plots)
+    rom_dirs = rom_directions_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy())
+
     # Output metrics
     metrics_data = {
         "total_metrics": {
@@ -279,7 +339,8 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
             "mean_duration_seconds": mean_duration_seconds,
             "std_duration_seconds": std_duration_seconds,
             "exercise_duration_seconds": exercise_duration
-        }
+        },
+        "rom_directions_degrees": rom_dirs  # for spider/radar plotting
     }
 
     print(metrics_data)
