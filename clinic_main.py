@@ -7,6 +7,8 @@ import multiprocessing as mp
 import threading
 import time
 import requests 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import configparser
 from datetime import datetime
 from mqtt_messages import init_mqtt_client, set_language, start_exercise_demo, send_voice_instructions,send_message_with_speech_to_text,send_message_with_speech_to_text_2,send_exit,start_cognitive_games,start_exergames,send_message_with_speech_to_text_ctg,send_message_with_speech_to_text_ctg_2,send_voice_instructions_ctg,app_connected,start_video,stop_video, reset_global_flags,POLAR_TOPIC,ACK_TOPIC
@@ -28,6 +30,43 @@ from pathlib import Path
 from mqtt_messages import ctg_queue
 import re
 MAC_RE = re.compile(r'[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}')
+
+# ---- HTTP session with retries/timeouts (helps under slow/flaky internet) ----
+REQUEST_TIMEOUT = (5, 30)  # (connect, read) seconds
+MAX_API_RETRIES = 3
+
+def _build_session():
+    retry_strategy = Retry(
+        total=5,
+        connect=5,
+        read=5,
+        backoff_factor=1.5,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset(["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE"])
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=5, pool_maxsize=5)
+    session = requests.Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.headers.update({"User-Agent": "TeleRehabEdge/1.0"})
+    return session
+
+SESSION = _build_session()
+
+def resilient_request(method, url, **kwargs):
+    """Perform an HTTP request with retries/backoff and a firm timeout."""
+    log = logging.getLogger(__name__)
+    last_exc = None
+    for attempt in range(1, MAX_API_RETRIES + 1):
+        try:
+            return SESSION.request(method, url, timeout=REQUEST_TIMEOUT, **kwargs)
+        except requests.exceptions.RequestException as exc:
+            last_exc = exc
+            sleep_for = min(2 ** attempt, 10)
+            log.warning(f"Request to {url} failed (attempt {attempt}/{MAX_API_RETRIES}): {exc}")
+            if attempt < MAX_API_RETRIES:
+                time.sleep(sleep_for)
+    raise last_exc
 
 def clean_mac(x):
     if not x:
@@ -57,21 +96,6 @@ TOPIC_PONG = f"healthcheck@{clinic_id}/IAMALIVE"
 camera_result = mp.Manager().dict()
 polar_result = mp.Manager().dict()
 
-def wait_for_app_or_give_up(client, clinic_id, max_tries=5, interval=1.0):
-    """
-    Περιμένει να γίνει app_connected True.
-    Στέλνει STARTVC έως max_tries φορές.
-    Επιστρέφει True αν συνδέθηκε, False αν έληξαν οι προσπάθειες.
-    """
-    for i in range(1, max_tries + 1):
-        if app_connected.value:
-            return True
-        client.publish(f"TELEREHAB@{clinic_id}/STARTVC", "STARTVC", qos=1, retain=True)
-        logger.info(f"STARTVC attempt {i}/{max_tries}")
-        time.sleep(interval)
-
-    logger.warning(f"App did not connect after {max_tries} STARTVC attempts. Continuing anyway.")
-    return False
 
 def start_broadcast_process():
     p = mp.Process(target=broadcast_ip)
@@ -163,7 +187,11 @@ def upload_file(file_path, file_type="Logs"):
         'Authorization': get_api_key()
     }
     files = {'files': open(file_path, 'rb')}
-    response = requests.post(url, headers=headers, files=files)
+    try:
+        response = resilient_request("post", url, headers=headers, files=files)
+    except requests.exceptions.RequestException as exc:
+        logging.error(f"Failed to upload {file_path} due to network issue: {exc}")
+        return
     
     if response.status_code == 200:
         logging.info(f"File {file_path} uploaded successfully to {file_type}.")
@@ -176,7 +204,11 @@ def get_file_list(file_type="Logs"):
     headers = {
         'Authorization': get_api_key()
     }
-    response = requests.get(url, headers=headers)
+    try:
+        response = resilient_request("get", url, headers=headers)
+    except requests.exceptions.RequestException as exc:
+        logging.error(f"Failed to retrieve file list due to network issue: {exc}")
+        return None
     
     if response.status_code == 200:
         return response.json()
@@ -190,7 +222,11 @@ def download_file(file_id, save_path, file_type="Logs"):
     headers = {
         'Authorization': get_api_key()
     }
-    response = requests.get(url, headers=headers)
+    try:
+        response = resilient_request("get", url, headers=headers)
+    except requests.exceptions.RequestException as exc:
+        logging.error(f"Failed to download file {file_id} due to network issue: {exc}")
+        return
     
     if response.status_code == 200:
         with open(save_path, 'wb') as f:
@@ -242,12 +278,17 @@ def get_devices():
         'accept': '*/*',
         'Authorization': api_key_edge
     }
-    response = requests.get(url, headers=headers)
+    try:
+        response = resilient_request("get", url, headers=headers)
+    except requests.exceptions.RequestException as exc:
+        logger.error(f"Unable to fetch devices: {exc}")
+        return []
     
     if response.status_code == 200:
         return response.json()
     else:
-        response.raise_for_status()
+        logger.error(f"Failed to fetch devices. Status: {response.status_code}, Response: {response.text}")
+        return []
 # Helper functions for API interaction
 def get_daily_schedule():
     """Fetch the daily schedule from the API."""
@@ -260,12 +301,17 @@ def get_daily_schedule():
         'accept': '*/*',
         'Authorization': api_key_edge
     }
-    response = requests.get(url, headers=headers)
+    try:
+        response = resilient_request("get", url, headers=headers)
+    except requests.exceptions.RequestException as exc:
+        logger.error(f"Unable to fetch daily schedule: {exc}")
+        return []
     
     if response.status_code == 200:
         return response.json()
     else:
-        response.raise_for_status()
+        logger.error(f"Failed to fetch daily schedule. Status: {response.status_code}, Response: {response.text}")
+        return []
 
 def post_results(score, exercise_id):
     """Fetch the daily schedule from the API."""    
@@ -287,7 +333,11 @@ def post_results(score, exercise_id):
         }
 
         if (not DEBUG):
-            response = requests.post(url, json=post_data, headers=headers)
+            try:
+                response = resilient_request("post", url, json=post_data, headers=headers)
+            except requests.exceptions.RequestException as exc:
+                logger.error(f"Error posting results (network): {exc}")
+                return
             
             if response.status_code == 200:
                 logger.info(f"Metrics successfully posted for exercise ID {exercise_id}")
@@ -308,12 +358,17 @@ def get_patient_id():
         'accept': '*/*',
         'Authorization': api_key_edge
     }
-    response = requests.get(url, headers=headers)
+    try:
+        response = resilient_request("get", url, headers=headers)
+    except requests.exceptions.RequestException as exc:
+        logger.error(f"Unable to fetch patientId: {exc}")
+        return None
     
     if response.status_code == 200:
         return response.json().get("patientId")  # ✅ just the int
     else:
-        response.raise_for_status()
+        logger.error(f"Failed to fetch patientId. Status: {response.status_code}, Response: {response.text}")
+        return None
 
 def post_patient_ip(mac_address):
     patient_id = get_patient_id()
@@ -331,7 +386,11 @@ def post_patient_ip(mac_address):
         'data': mac_address
     }
 
-    response = requests.post(url, headers=headers, json=payload)
+    try:
+        response = resilient_request("post", url, headers=headers, json=payload)
+    except requests.exceptions.RequestException as exc:
+        print(f"Error posting MAC due to network issue: {exc}")
+        return
 
     if response.status_code == 200:
         print("MAC address posted successfully.")
@@ -381,18 +440,17 @@ def runScenario(queueData):
     client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1, retain=True)
     time.sleep(4)
     client.publish(ACK_TOPIC, payload="ack", qos=1)
-    
+
+
     # Stop recording after data collection is done
     client.publish(f'TELEREHAB@{clinic_id}/StopRecording', 'STOP_RECORDING')
     time.sleep(2)
     print("Waiting for app to connect...")
-    connected = wait_for_app_or_give_up(client, clinic_id, max_tries=15, interval=1.0)
-    
-    if connected:
-        print("App connected, continuing...")
-        app_connected.value = False  # reset μόνο όταν όντως συνδέθηκε
-    else:
-        print("App NOT connected after 15 tries. Continuing scenario (no block).")
+    while not app_connected.value:
+        time.sleep(1)
+        client.publish(f'TELEREHAB@{clinic_id}/STARTVC', 'STARTVC', qos=1)
+    print("App connected, continuing...")
+    app_connected.value = False  # Reset for next use
 
     try:
         time.sleep(2)
