@@ -39,9 +39,19 @@ def process_imu_data(imu_data_lists, fs, plotdiagrams=True):
     print('max_start_time = ', max_start_time)
     print('min_end_time = ', min_end_time)
 
+    # Filter dataframes to the common time range
+    #dataframes = [df[max_start_time:min_end_time] for df in dataframes]
+
+    # Determine the maximum number of samples across lists
+    #max_samples = max(len(df) for df in dataframes)
+
     # Resample and interpolate dataframes to have the same number of samples
     resampled_dataframes = []
     for df in dataframes:
+        #df_resampled = df.resample(f'{1000//fs}ms').mean()  # Resampling to match the sampling frequency
+        #df_interpolated = df_resampled.interpolate(method='time')
+        #df_interpolated = df_interpolated.dropna().head(max_samples)
+        #resampled_dataframes.append(df_interpolated)
         resampled_dataframes.append(df)
 
     if plotdiagrams:
@@ -58,8 +68,12 @@ def process_imu_data(imu_data_lists, fs, plotdiagrams=True):
             plt.xticks(rotation=45)
             plt.tight_layout()
             plt.savefig(f'quaternion_components_plot_{idx+1}.png')
+            # plt.show()
 
+    # Convert the processed DataFrames back to lists
+    #resampled_lists = [df.reset_index().values.tolist() for df in resampled_dataframes]
 
+    #20241013
     resampled_lists = []
 
     data_idx = 0
@@ -118,21 +132,8 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     y = filtfilt(b, a, data, padlen=padlen)
     return y
 
-
-def striplist(L):
-    A = []
-    for item in L:
-        t = item[1:-1]
-        if ',' in t:
-            t = t.split(',')
-        else:
-            t = t.split(' ')
-        if "(number" not in t:
-            A.append([t[-7],t[-5],t[-4],t[-3],t[-2],t[-1]])
-    return A
-
 def get_metrics(imu1, imu2, imu3, imu4, counter):
-    
+
     Limu1 = reformat_sensor_data(imu1)
     Limu2 = reformat_sensor_data(imu2)
     Limu3 = reformat_sensor_data(imu3)   
@@ -144,6 +145,7 @@ def get_metrics(imu1, imu2, imu3, imu4, counter):
 
     
     Limu2 = processed_dataframes[1]
+    
 
     if len(Limu2) > 0:
         returnedJson = getMetricsStandingNew01(Limu2, False) 
@@ -216,7 +218,7 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
 
     for i, (yaw_range, roll_range) in enumerate(zip(movement_ranges_yaw, movement_ranges_roll)):
         combined_range = np.sqrt(yaw_range**2 + roll_range**2)
-        print(f"Movement {i+1}: Yaw Range = {yaw_range:.2f} degrees, Roll Range = {roll_range:.2f} degrees, Combined Range = {combined_range:.2f} degrees")
+        #print(f"Movement {i+1}: Yaw Range = {yaw_range:.2f} degrees, Roll Range = {roll_range:.2f} degrees, Combined Range = {combined_range:.2f} degrees")
 
     significant_movements = [(pair, yaw, roll, np.sqrt(yaw**2 + roll**2)) for pair, yaw, roll in zip(movement_pairs, movement_ranges_yaw, movement_ranges_roll) if np.sqrt(yaw**2 + roll**2) >= 0.01]
 
@@ -225,6 +227,7 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
 
     #for i, (_, _, _, combined_range) in enumerate(significant_movements):
         #print(f"Significant Movement {i+1}: Combined Range = {combined_range:.2f} degrees")
+
 
     movement_durations = []
 
@@ -241,9 +244,37 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
     std_combined_range = np.std(filtered_combined_ranges, ddof=1)  # ddof=1 for sample standard deviation
 
     mean_duration = np.mean(movement_durations)
-    std_duration = np.std(movement_durations, ddof=1)  # ddof=1 for sample standard deviation    
+    std_duration = np.std(movement_durations, ddof=1)  # ddof=1 for sample standard deviation
 
-    # sway_range = max(combined_movement_ranges) - min(combined_movement_ranges) if combined_movement_ranges >= 4 else -1
+    # --- sway metrics from Euler roll/pitch (real degrees) ---
+    t0_dt = df_Limu2.index[0]
+    t_sec_sway = np.array([(ts - t0_dt).total_seconds() for ts in df_Limu2.index])
+    roll_deg = euler_angles_degrees2[:, 0]
+    pitch_deg = euler_angles_degrees2[:, 1]
+
+    d_roll = np.diff(roll_deg)
+    d_pitch = np.diff(pitch_deg)
+    sway_path_length_deg = float(np.sum(np.sqrt(d_roll ** 2 + d_pitch ** 2)))
+
+    roll_std = float(np.std(roll_deg, ddof=1)) if len(roll_deg) >= 2 else 0.0
+    pitch_std = float(np.std(pitch_deg, ddof=1)) if len(pitch_deg) >= 2 else 0.0
+    sway_ellipse_area_deg2 = float(np.pi * 1.96 * roll_std * 1.96 * pitch_std)
+
+    if len(t_sec_sway) > 1:
+        roll_vel = np.gradient(roll_deg, t_sec_sway)
+        pitch_vel = np.gradient(pitch_deg, t_sec_sway)
+        sway_velocity = np.sqrt(roll_vel ** 2 + pitch_vel ** 2)
+        sway_velocity_mean_deg_per_s = float(np.mean(sway_velocity))
+        sway_velocity_std_deg_per_s = float(np.std(sway_velocity, ddof=1)) if len(sway_velocity) >= 2 else 0.0
+    else:
+        sway_velocity_mean_deg_per_s = 0.0
+        sway_velocity_std_deg_per_s = 0.0
+
+    step_ts = max(1, len(t_sec_sway) // 200)
+    sway_time_series = [
+        {"time_s": float(t_sec_sway[k]), "roll_deg": float(roll_deg[k]), "pitch_deg": float(pitch_deg[k])}
+        for k in range(0, len(t_sec_sway), step_ts)
+    ]
 
     metrics_data = {
         "total_metrics": {
@@ -253,12 +284,19 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
             "std_range_degrees": float(std_combined_range),
             "mean_duration_seconds": float(mean_duration),
             "std_duration_seconds": float(std_duration),
-            "exersice_duration_seconds" : total_duration_seconds
-        }
+            "exercise_duration_seconds": total_duration_seconds,
+            "sway_path_length_deg": sway_path_length_deg,
+            "sway_ellipse_area_deg2": sway_ellipse_area_deg2,
+            "sway_velocity_mean_deg_per_s": sway_velocity_mean_deg_per_s,
+            "sway_velocity_std_deg_per_s": sway_velocity_std_deg_per_s,
+            "roll_std_deg": roll_std,
+            "pitch_std_deg": pitch_std
+        },
+        "sway_time_series": sway_time_series
     }
     print(metrics_data)
     datetime_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{datetime_string}_StandingBalanceFoam_metrics.txt"
+    filename = f"{datetime_string}_StandingBalance_metrics.txt"
 
     save_metrics_to_txt(metrics_data, filename)
 
@@ -266,7 +304,7 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
 
 def save_metrics_to_txt(metrics, file_path):
     main_directory = "Standing Metrics Data"
-    sub_directory = "StandingBalanceFoam Metrics Data"
+    sub_directory = "StandingBalance Metrics Data"
 
     directory = os.path.join(main_directory, sub_directory)
     
