@@ -613,13 +613,38 @@ def getMetricsGaitNew01(Limu3, Limu4, plotdiagrams):
 
     interval_duration_seconds = (df_Limu3.index[-1] - df_Limu3.index[0]).total_seconds()
     total_duration_seconds += interval_duration_seconds
-    
+
+    # --- additional metrics: symmetry, amplitude, per-step timestamps ---
+    # Intersection event timestamps in seconds from exercise start
+    intersection_times_s = [float((t - common_time[0]).total_seconds()) for t in intersection_times]
+
+    # Step timing symmetry index (0 = perfectly symmetric)
+    left_mean_swing = float(np.mean(left_swing_times)) if left_swing_times else 0.0
+    right_mean_swing = float(np.mean(right_swing_times)) if right_swing_times else 0.0
+    if left_mean_swing > 0 and right_mean_swing > 0:
+        step_timing_symmetry_index = float(
+            abs(left_mean_swing - right_mean_swing)
+            / ((left_mean_swing + right_mean_swing) / 2.0) * 100.0
+        )
+    else:
+        step_timing_symmetry_index = 0.0
+
+    # Step amplitude (mean peak acceleration magnitude per leg)
+    left_step_amplitude_mean = float(np.mean(left_filtered_magnitude_interpolated[left_maxima_indices])) \
+        if left_maxima_indices else 0.0
+    right_step_amplitude_mean = float(np.mean(right_filtered_magnitude_interpolated[right_maxima_indices])) \
+        if right_maxima_indices else 0.0
+
     metrics_data = {
             "total_metrics": {
                 "Gait Cycle":{
                     "Number of steps": int(len(step_times)),
-                    "Right Single Support Time": right_single_support_times,
-                    "Left Single Support Time": left_single_support_times,
+                    "Cadence": cadence,
+                    "step_timing_symmetry_index": step_timing_symmetry_index,
+                    "left_step_amplitude_mean": left_step_amplitude_mean,
+                    "right_step_amplitude_mean": right_step_amplitude_mean,
+                    "left_swing_time_mean_s": left_mean_swing,
+                    "right_swing_time_mean_s": right_mean_swing,
                     "Right Single Support Time": right_single_support_times,
                     "Left Single Support Time": left_single_support_times,
                     "Double Support Time": double_support_times,
@@ -633,11 +658,11 @@ def getMetricsGaitNew01(Limu3, Limu4, plotdiagrams):
                     "Right Swing peak Times": right_swing_peak_times,
                     "Left Toe Off Times": left_toe_off_times,
                     "Left Swing peak Times": left_swing_peak_times,
-                    "Cadence": cadence,
                     "exercise_duration_seconds": total_duration_seconds
                                 }
-                
-        }
+
+        },
+        "intersection_times_s": intersection_times_s,
         }
 
 
@@ -667,11 +692,18 @@ def save_metrics_to_txt(metrics, file_path):
         with open(full_path, 'w') as file:
             for main_key, main_value in metrics.items():
                 file.write(f"{main_key}:\n")
-                for key, value in main_value.items():
-                    file.write(f"  {key}:\n")
-                    for sub_key, sub_value in value.items():
-                        file.write(f"    {sub_key}: {sub_value}\n")
-                    file.write("\n") 
+                if isinstance(main_value, dict):
+                    for key, value in main_value.items():
+                        if isinstance(value, dict):
+                            file.write(f"  {key}:\n")
+                            for sub_key, sub_value in value.items():
+                                file.write(f"    {sub_key}: {sub_value}\n")
+                        else:
+                            file.write(f"  {key}: {value}\n")
+                    file.write("\n")
+                else:
+                    file.write(f"  {main_value}\n")
+                file.write("\n")
 # def calculate_correlation(metric1, metric2):
 #     # Calculate the correlation between two metrics
 #     correlation = metric1.corr(metric2)
