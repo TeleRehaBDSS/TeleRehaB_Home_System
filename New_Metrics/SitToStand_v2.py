@@ -1045,6 +1045,8 @@ def get_metrics(imu1,imu2,imu3,imu4, counter):
             "per_rep_velocity_curves_deg_per_s": [],
             "per_rep_peak_angular_velocity_deg_per_s": [],
             "per_rep_durations_seconds": [],
+            "per_rep_start_times_seconds": [],
+            "per_rep_end_times_seconds": [],
             "head_trace_w": [],
             "head_min_w": {"time_s": 0.0, "w": 0.0}
         }
@@ -1070,10 +1072,21 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
     y_signal = df_Limu2['W(number)']
     timestamps = pd.to_numeric(df_Limu2.index) / 1e3  # Convert to seconds
     timestamps = pd.Series(timestamps)
-    
+
+    # Time in seconds from exercise start (for per-rep timestamps)
+    t0_dt = df_Limu2.index[0]
+    t_sec_arr = np.array([(ts - t0_dt).total_seconds() for ts in df_Limu2.index])
+
+    # Euler pitch in real degrees (for degree-correct metrics)
+    _quat_limu2 = df_Limu2[['X(number)', 'Y (number)', 'Z (number)', 'W(number)']].to_numpy()
+    _rot_limu2 = R.from_quat(_quat_limu2)
+    _euler_limu2 = _rot_limu2.as_euler('xyz', degrees=True)  # (N, 3): roll, pitch, yaw
+    pitch_deg_series = pd.Series(_euler_limu2[:, 1], index=df_Limu2.index)
+
     # Smooth signal to remove noise
     window_size = 50
     smoothed_signal = y_signal.rolling(window=window_size, center=True).mean()
+    smoothed_pitch_deg = pitch_deg_series.rolling(window=window_size, center=True).mean()
     
     # Detect valleys (bend phase) and peaks (stand phase)
     valleys, _ = find_peaks(-smoothed_signal, prominence=0.02)  # Bend phase (low W values)
@@ -1084,6 +1097,8 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
     per_rep_velocity_curves = []
     per_rep_peak_angular_velocity = []
     per_rep_durations_seconds = []
+    per_rep_start_times_seconds = []
+    per_rep_end_times_seconds = []
     i = 0
     
     while i < len(valleys) - 1:                        
@@ -1096,25 +1111,36 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
             # Validate as a full sit-to-stand repetition
             movement_range = smoothed_signal.iloc[stand_peak] - smoothed_signal.iloc[start_bend]
             if movement_range > 0.05:
-                final_movements.append({
-                    "start_time": timestamps.iloc[start_bend],
-                    "end_time": timestamps.iloc[end_sit],
-                    "range_degrees": movement_range,
-                    "duration": timestamps.iloc[end_sit] - timestamps.iloc[start_bend],
-                    "stand_time": timestamps.iloc[end_sit] - timestamps.iloc[stand_peak]  # Time standing
-                })
-                stand_durations.append(timestamps.iloc[end_sit] - timestamps.iloc[stand_peak])
+                # Real timestamps in seconds from exercise start
+                start_s = float(t_sec_arr[start_bend])
+                end_s = float(t_sec_arr[end_sit])
+                stand_s = float(t_sec_arr[stand_peak])
+                per_rep_start_times_seconds.append(start_s)
+                per_rep_end_times_seconds.append(end_s)
 
-                # Per-rep velocity curve (deg/s) on the smoothed signal
-                seg = smoothed_signal.iloc[start_bend:end_sit+1]
-                if len(seg) > 1:
-                    fs_rep = 50  # assumed sampling for this processed trace
-                    ang_vel = np.gradient(seg) * fs_rep
-                    per_rep_peak_angular_velocity.append(float(np.nanmax(np.abs(ang_vel))))
-                    x_old = np.linspace(0, 1, len(ang_vel))
+                # Real degree range from Euler pitch
+                seg_pitch = smoothed_pitch_deg.iloc[start_bend:end_sit+1].ffill().bfill().to_numpy()
+                movement_range_deg = float(np.nanmax(seg_pitch) - np.nanmin(seg_pitch)) if len(seg_pitch) > 0 else 0.0
+
+                final_movements.append({
+                    "start_time_s": start_s,
+                    "end_time_s": end_s,
+                    "range_degrees": movement_range_deg,
+                    "duration_s": end_s - start_s,
+                    "stand_time_s": end_s - stand_s
+                })
+                stand_durations.append(end_s - stand_s)
+
+                # Per-rep angular velocity in real deg/s (from Euler pitch)
+                seg_pitch_full = smoothed_pitch_deg.iloc[start_bend:end_sit+1].ffill().bfill().to_numpy()
+                seg_t_s = t_sec_arr[start_bend:end_sit+1]
+                if len(seg_pitch_full) > 1:
+                    ang_vel_deg = np.gradient(seg_pitch_full, seg_t_s)  # deg/s
+                    per_rep_peak_angular_velocity.append(float(np.nanmax(np.abs(ang_vel_deg))))
+                    x_old = np.linspace(0, 1, len(ang_vel_deg))
                     x_new = np.linspace(0, 1, 100)
-                    per_rep_velocity_curves.append(np.interp(x_new, x_old, ang_vel).tolist())
-                per_rep_durations_seconds.append(float(timestamps.iloc[end_sit] - timestamps.iloc[start_bend]))
+                    per_rep_velocity_curves.append(np.interp(x_new, x_old, ang_vel_deg).tolist())
+                per_rep_durations_seconds.append(end_s - start_s)
             
             i = valleys.tolist().index(end_sit)
         except StopIteration:
@@ -1138,19 +1164,20 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
         plt.grid()
         plt.show()
     
-    # Compute per-rep peak angular velocity
-    ang_vel = np.gradient(smoothed_signal, timestamps)
+    # Compute per-rep peak angular velocity in real deg/s (from Euler pitch)
+    _pitch_filled = smoothed_pitch_deg.ffill().bfill().to_numpy()
+    ang_vel_deg_all = np.gradient(_pitch_filled, t_sec_arr)
     peak_velocities = []
     for move in final_movements:
-        start = (timestamps >= move["start_time"]) & (timestamps <= move["end_time"])
-        if start.any():
-            peak_velocities.append(np.nanmax(np.abs(ang_vel[start])))
+        mask = (t_sec_arr >= move["start_time_s"]) & (t_sec_arr <= move["end_time_s"])
+        if mask.any():
+            peak_velocities.append(float(np.nanmax(np.abs(ang_vel_deg_all[mask]))))
 
     # Compute metrics
     if final_movements:
-        durations = [m['duration'] for m in final_movements]
+        durations = [m['duration_s'] for m in final_movements]
         ranges = [m['range_degrees'] for m in final_movements]
-        exercise_duration =(df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds()
+        exercise_duration = (df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds()
         
         # Early vs late durations (bar chart ready)
         half = max(1, len(per_rep_durations_seconds) // 2)
@@ -1176,26 +1203,28 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
             head_min_w = {"time_s": 0.0, "w": 0.0}
 
         metrics_data = {
-            "total_metrics" :{
+            "total_metrics": {
             "number_of_movements": len(final_movements),
             "pace_movements_per_second": len(final_movements) / exercise_duration,
-            "mean_range_degrees": np.mean(ranges),
-            "std_range_degrees": np.std(ranges),
-            "mean_duration_seconds": np.mean(durations)/1000000.0,
-            "std_duration_seconds": np.std(durations)/1000000.0,
-            "mean_stand_time_seconds": np.mean(stand_durations)/1000000.0,
-            "std_stand_time_seconds": np.std(stand_durations)/1000000.0,
+            "mean_range_degrees": float(np.mean(ranges)) if ranges else 0.0,
+            "std_range_degrees": float(np.std(ranges)) if ranges else 0.0,
+            "mean_duration_seconds": float(np.mean(durations)) if durations else 0.0,
+            "std_duration_seconds": float(np.std(durations)) if durations else 0.0,
+            "mean_stand_time_seconds": float(np.mean(stand_durations)) if stand_durations else 0.0,
+            "std_stand_time_seconds": float(np.std(stand_durations)) if stand_durations else 0.0,
             "exercise_duration_seconds": exercise_duration,
             "mean_peak_angular_velocity": float(np.mean(peak_velocities)) if peak_velocities else 0,
             "std_peak_angular_velocity": float(np.std(peak_velocities)) if peak_velocities else 0,
             "early_mean_duration_seconds": early_mean,
             "late_mean_duration_seconds": late_mean
         },
-        "per_rep_velocity_curves_deg_per_s": per_rep_velocity_curves,            # for pelvis velocity overlays
-        "per_rep_peak_angular_velocity_deg_per_s": per_rep_peak_angular_velocity, # for histograms/peaks
-        "per_rep_durations_seconds": per_rep_durations_seconds,                  # for per-rep bars
-        "head_trace_w": head_trace_w,                                            # for head trajectory plot
-        "head_min_w": head_min_w                                                 # start->max lean marker
+        "per_rep_velocity_curves_deg_per_s": per_rep_velocity_curves,
+        "per_rep_peak_angular_velocity_deg_per_s": per_rep_peak_angular_velocity,
+        "per_rep_durations_seconds": per_rep_durations_seconds,
+        "per_rep_start_times_seconds": per_rep_start_times_seconds,
+        "per_rep_end_times_seconds": per_rep_end_times_seconds,
+        "head_trace_w": head_trace_w,
+        "head_min_w": head_min_w
         }
     else:
         metrics_data = {
@@ -1217,10 +1246,12 @@ def getMetricsSittingNew01(Limu1, Limu2, plotdiagrams=False):
             "per_rep_velocity_curves_deg_per_s": [],
             "per_rep_peak_angular_velocity_deg_per_s": [],
             "per_rep_durations_seconds": [],
+            "per_rep_start_times_seconds": [],
+            "per_rep_end_times_seconds": [],
             "head_trace_w": [],
             "head_min_w": {"time_s": 0.0, "w": 0.0}
         }
-    
+
     print(metrics_data)
     
     # Save metrics to a file
