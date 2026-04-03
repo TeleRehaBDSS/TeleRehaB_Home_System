@@ -221,32 +221,94 @@ def getMetricsStandingOld04(Limu2, Limu3, Limu4, plotdiagrams):
                 min_to_max_count += 1
 
         # Calculate movement metrics
-        durations = [abs(end - start) for start, end, _ in movements]
         num_movements = len(movements)
-        mean_duration = np.mean(durations)
-        std_duration = np.std(durations)
-        
-        left_right_durations = [abs(end - start) for start, end, direction in movements if direction == 'max_to_min']
-        right_left_durations = [abs(end - start) for start, end, direction in movements if direction == 'min_to_max']
-        
-        mean_duration_left_right = np.mean(left_right_durations) if left_right_durations else None
-        mean_duration_right_left = np.mean(right_left_durations) if right_left_durations else None
-        symmetry = mean_duration_left_right / mean_duration_right_left if mean_duration_left_right and mean_duration_right_left else None
         total_duration_seconds = (df_Limu2.index[-1] - df_Limu2.index[0]).total_seconds()
-        # Store metrics
 
+        # --- fix: real-second durations from DatetimeIndex ---
+        t0_dt = df_Limu2.index[0]
+        t_sec_turn = np.array([(ts - t0_dt).total_seconds() for ts in df_Limu2.index])
+
+        def _idx_sec(idx):
+            return float(t_sec_turn[min(int(idx), len(t_sec_turn) - 1)])
+
+        durations_s = [abs(_idx_sec(end) - _idx_sec(start)) for start, end, _ in movements]
+        mean_duration_s = float(np.mean(durations_s)) if durations_s else 0.0
+        std_duration_s = float(np.std(durations_s, ddof=1)) if len(durations_s) >= 2 else 0.0
+
+        lr_durations_s = [abs(_idx_sec(end) - _idx_sec(start))
+                          for start, end, direction in movements if direction == 'max_to_min']
+        rl_durations_s = [abs(_idx_sec(end) - _idx_sec(start))
+                          for start, end, direction in movements if direction == 'min_to_max']
+        mean_duration_lr_s = float(np.mean(lr_durations_s)) if lr_durations_s else 0.0
+        mean_duration_rl_s = float(np.mean(rl_durations_s)) if rl_durations_s else 0.0
+        symmetry = mean_duration_lr_s / mean_duration_rl_s if mean_duration_rl_s > 0 else None
+
+        # --- Euler-based yaw velocity and sway metrics ---
+        quat_pelvis = df_Limu2[['X(number)', 'Y (number)', 'Z (number)', 'W(number)']].to_numpy()
+        euler_pelvis = R.from_quat(quat_pelvis).as_euler('xyz', degrees=True)
+        yaw_deg = euler_pelvis[:, 2]
+        roll_deg = euler_pelvis[:, 0]
+        pitch_deg = euler_pelvis[:, 1]
+
+        yaw_vel = np.gradient(yaw_deg, t_sec_turn) if len(t_sec_turn) > 1 else np.zeros_like(yaw_deg)
+
+        per_turn_start_s = []
+        per_turn_end_s = []
+        per_turn_yaw_range_deg = []
+        per_turn_sway_roll_std_deg = []
+        per_turn_sway_pitch_std_deg = []
+        per_turn_peak_yaw_velocity_deg_per_s = []
+
+        for start, end, _ in movements:
+            si = min(int(start), len(t_sec_turn) - 1)
+            ei = min(int(end), len(t_sec_turn) - 1)
+            per_turn_start_s.append(float(t_sec_turn[si]))
+            per_turn_end_s.append(float(t_sec_turn[ei]))
+            per_turn_yaw_range_deg.append(float(abs(yaw_deg[ei] - yaw_deg[si])))
+            if ei > si:
+                seg_roll = roll_deg[si:ei + 1]
+                seg_pitch = pitch_deg[si:ei + 1]
+                seg_yaw_vel = np.abs(yaw_vel[si:ei + 1])
+                per_turn_sway_roll_std_deg.append(float(np.std(seg_roll, ddof=1)) if len(seg_roll) >= 2 else 0.0)
+                per_turn_sway_pitch_std_deg.append(float(np.std(seg_pitch, ddof=1)) if len(seg_pitch) >= 2 else 0.0)
+                per_turn_peak_yaw_velocity_deg_per_s.append(float(np.max(seg_yaw_vel)))
+            else:
+                per_turn_sway_roll_std_deg.append(0.0)
+                per_turn_sway_pitch_std_deg.append(0.0)
+                per_turn_peak_yaw_velocity_deg_per_s.append(0.0)
+
+        # yaw velocity time series (downsampled to ≤200 points)
+        step_ts = max(1, len(t_sec_turn) // 200)
+        yaw_velocity_time_series = [
+            {"time_s": float(t_sec_turn[k]), "yaw_velocity_deg_per_s": float(yaw_vel[k])}
+            for k in range(0, len(t_sec_turn), step_ts)
+        ]
+
+        sway_roll_std_deg = float(np.std(roll_deg, ddof=1)) if len(roll_deg) >= 2 else 0.0
+        sway_pitch_std_deg = float(np.std(pitch_deg, ddof=1)) if len(pitch_deg) >= 2 else 0.0
+
+        # Store metrics
         metrics_data = {
-            "total_metrics":{
-            "Total Movements": int(num_movements),
-            "Right-to-Left (Max-to-Min) Movements": max_to_min_count,
-            "Left-to-Right (Min-to-Max) Movements": min_to_max_count,
-            "Mean Duration": float(mean_duration),
-            "Duration Standard Deviation": float(std_duration),
-            "Mean Duration Left-to-Right (Max-to-Min)": mean_duration_left_right,
-            "Mean Duration Right-to-Left (Min-to-Max)": mean_duration_right_left,
-            "Symmetry Ratio (Left-to-Right / Right-to-Left)": symmetry,
-            "exercise_duration_seconds":total_duration_seconds
-        }
+            "total_metrics": {
+                "Total Movements": int(num_movements),
+                "Right-to-Left (Max-to-Min) Movements": max_to_min_count,
+                "Left-to-Right (Min-to-Max) Movements": min_to_max_count,
+                "mean_duration_seconds": mean_duration_s,
+                "std_duration_seconds": std_duration_s,
+                "mean_duration_lr_seconds": mean_duration_lr_s,
+                "mean_duration_rl_seconds": mean_duration_rl_s,
+                "Symmetry Ratio (Left-to-Right / Right-to-Left)": symmetry,
+                "sway_roll_std_deg": sway_roll_std_deg,
+                "sway_pitch_std_deg": sway_pitch_std_deg,
+                "exercise_duration_seconds": total_duration_seconds
+            },
+            "per_turn_start_s": per_turn_start_s,
+            "per_turn_end_s": per_turn_end_s,
+            "per_turn_yaw_range_deg": per_turn_yaw_range_deg,
+            "per_turn_sway_roll_std_deg": per_turn_sway_roll_std_deg,
+            "per_turn_sway_pitch_std_deg": per_turn_sway_pitch_std_deg,
+            "per_turn_peak_yaw_velocity_deg_per_s": per_turn_peak_yaw_velocity_deg_per_s,
+            "yaw_velocity_time_series": yaw_velocity_time_series,
         }
     else:
         metrics_data = {
