@@ -308,9 +308,55 @@ def getMetricsSittingNew04(Limu0, Limu1, Limu2, plotdiagrams):
     total_left_range = sum(left_ranges_list) / len(left_ranges_list) if len(left_ranges_list) > 0 else 0
     total_right_range = sum(right_ranges_list) / len(right_ranges_list) if len(right_ranges_list) > 0 else 0
 
+    # Per-step timestamps (seconds from exercise start)
+    left_step_times_s = [float(timestamps_left[p]) for p in left_peaks]
+    right_step_times_s = [float(timestamps_right[p]) for p in right_peaks]
+
+    # Total exercise duration
+    total_duration_s = float(
+        max(timestamps_left[-1] if len(timestamps_left) > 0 else 0,
+            timestamps_right[-1] if len(timestamps_right) > 0 else 0)
+    )
+
+    # Cadence (steps/min)
+    total_steps = total_left_movements + total_right_movements
+    cadence_steps_per_min = float(total_steps / total_duration_s * 60.0) if total_duration_s > 0 else 0.0
+
+    # Step timing symmetry index (0 = perfect, higher = more asymmetric)
+    left_mean_interval = float(np.mean(np.diff(timestamps_left[left_peaks]))) if len(left_peaks) > 1 else 0.0
+    right_mean_interval = float(np.mean(np.diff(timestamps_right[right_peaks]))) if len(right_peaks) > 1 else 0.0
+    if left_mean_interval > 0 and right_mean_interval > 0:
+        step_timing_symmetry_index = float(
+            abs(left_mean_interval - right_mean_interval)
+            / ((left_mean_interval + right_mean_interval) / 2.0) * 100.0
+        )
+    else:
+        step_timing_symmetry_index = 0.0
+
+    # Pelvis stability from Limu0 (pelvis quaternion, 50 Hz)
+    pelvis_roll_std_deg = 0.0
+    pelvis_pitch_std_deg = 0.0
+    if Limu0 and len(Limu0) >= 2:
+        try:
+            columns_pelvis = ['Timestamp', 'elapsed(time)', 'W(number)', 'X(number)', 'Y(number)', 'Z(number)']
+            df_Limu0 = pd.DataFrame(Limu0, columns=columns_pelvis)
+            df_Limu0['Timestamp'] = pd.to_datetime(df_Limu0['Timestamp'])
+            df_Limu0 = df_Limu0.sort_values(by='Timestamp').set_index('Timestamp')
+            quat_p = df_Limu0[['X(number)', 'Y(number)', 'Z(number)', 'W(number)']].to_numpy()
+            euler_p = R.from_quat(quat_p).as_euler('xyz', degrees=True)
+            pelvis_roll_std_deg = float(np.std(euler_p[:, 0], ddof=1))
+            pelvis_pitch_std_deg = float(np.std(euler_p[:, 1], ddof=1))
+        except Exception:
+            pass
+
     # Compile final metrics
     metrics_data = {
         "total_metrics": {
+            "total_steps": total_steps,
+            "cadence_steps_per_min": cadence_steps_per_min,
+            "step_timing_symmetry_index": step_timing_symmetry_index,
+            "pelvis_roll_std_deg": pelvis_roll_std_deg,
+            "pelvis_pitch_std_deg": pelvis_pitch_std_deg,
             "LEFT LEG": {
                 "number_of_movements": total_left_movements,
                 "pace_movements_per_second": total_left_movements / (len(left_foot_z) * time_interval),
@@ -327,7 +373,9 @@ def getMetricsSittingNew04(Limu0, Limu1, Limu2, plotdiagrams):
                 "exercise_duration_seconds": len(right_foot_z) * time_interval,
                 "movement_duration": total_right_duration,
             }
-        }
+        },
+        "left_step_times_s": left_step_times_s,
+        "right_step_times_s": right_step_times_s,
     }
 
     print(metrics_data)
@@ -357,9 +405,16 @@ def save_metrics_to_txt(metrics, file_path):
     with open(full_path, 'w') as file:
         for main_key, main_value in metrics.items():
             file.write(f"{main_key}:\n")
-            for key, value in main_value.items():
-                file.write(f"  {key}:\n")
-                for sub_key, sub_value in value.items():
-                    file.write(f"    {sub_key}: {sub_value}\n")
-                file.write("\n") 
+            if isinstance(main_value, dict):
+                for key, value in main_value.items():
+                    if isinstance(value, dict):
+                        file.write(f"  {key}:\n")
+                        for sub_key, sub_value in value.items():
+                            file.write(f"    {sub_key}: {sub_value}\n")
+                    else:
+                        file.write(f"  {key}: {value}\n")
+                file.write("\n")
+            else:
+                file.write(f"  {main_value}\n")
+            file.write("\n")
          
