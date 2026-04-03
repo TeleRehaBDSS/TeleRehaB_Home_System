@@ -326,6 +326,63 @@ def getMetricsSeatingOld03(Limu1, Limu2, plotdiagrams):
             min_angle = df_Limu2['Pitch (degrees)'][pelvis_maxima[i]]
             range_degrees.append(np.abs(max_angle - min_angle))
 
+        # --- new metrics: per-rep timing, velocity, smoothness ---
+        t0_dt = df_Limu2.index[0]
+        t_sec = np.array([(ts - t0_dt).total_seconds() for ts in df_Limu2.index])
+        pitch_arr = euler_angles2[:, 1]  # real pitch degrees (already computed)
+
+        per_rep_rom_degrees = []
+        per_rep_start_times_s = []
+        per_rep_end_times_s = []
+        per_rep_time_to_peak_flexion_s = []
+        per_rep_time_return_s = []
+        per_rep_hold_duration_s = []
+
+        n_reps = min(len(pelvis_maxima) - 1, len(pelvis_minima))
+        for i in range(n_reps):
+            si = min(int(pelvis_maxima[i]), len(t_sec) - 1)
+            pi_ = min(int(pelvis_minima[i]), len(t_sec) - 1)
+            ei = min(int(pelvis_maxima[i + 1]), len(t_sec) - 1) if (i + 1) < len(pelvis_maxima) else len(t_sec) - 1
+
+            per_rep_rom_degrees.append(float(range_degrees[i]) if i < len(range_degrees) else 0.0)
+            per_rep_start_times_s.append(float(t_sec[si]))
+            per_rep_end_times_s.append(float(t_sec[ei]))
+            per_rep_time_to_peak_flexion_s.append(float(t_sec[pi_] - t_sec[si]))
+            per_rep_time_return_s.append(float(t_sec[ei] - t_sec[pi_]))
+
+            # hold duration: time within 10% of peak angle range
+            peak_val = float(pitch_arr[pi_])
+            base_val = float(pitch_arr[si])
+            threshold = max(abs(peak_val - base_val) * 0.1, 1.0)
+            hold_samples = sum(1 for k in range(si, ei + 1) if abs(pitch_arr[k] - peak_val) <= threshold)
+            per_rep_hold_duration_s.append(float(hold_samples / fs))
+
+        # angular velocity (deg/s) from Euler pitch gradient
+        if len(t_sec) > 1:
+            ang_vel = np.gradient(pitch_arr, t_sec)
+            mean_velocity = float(np.mean(np.abs(ang_vel)))
+            std_velocity = float(np.std(np.abs(ang_vel), ddof=1)) if len(ang_vel) >= 2 else 0.0
+
+            # normalized jerk smoothness index
+            jerk = np.gradient(ang_vel, t_sec)
+            T_dur = float(t_sec[-1] - t_sec[0]) if t_sec[-1] > t_sec[0] else 1.0
+            mean_rom_val = float(np.mean(per_rep_rom_degrees)) if per_rep_rom_degrees else 1.0
+            if mean_rom_val < 1e-6:
+                mean_rom_val = 1.0
+            jerk_sq_integral = float(np.trapz(jerk ** 2, t_sec))
+            smoothness_jerk_index = float(np.sqrt(jerk_sq_integral * T_dur ** 3 / (2.0 * mean_rom_val ** 2)))
+
+            # angular velocity time series (downsampled to ≤200 points)
+            step = max(1, len(t_sec) // 200)
+            angular_velocity_time_series = [
+                {"time_s": float(t_sec[k]), "velocity_deg_per_s": float(abs(ang_vel[k]))}
+                for k in range(0, len(t_sec), step)
+            ]
+        else:
+            mean_velocity = 0.0
+            std_velocity = 0.0
+            smoothness_jerk_index = 0.0
+            angular_velocity_time_series = []
 
         # 5. Head movements: chin to chest (head max to head min) and chest to chin (head min to head max)
         chin_to_chest_times = []
@@ -346,10 +403,20 @@ def getMetricsSeatingOld03(Limu1, Limu2, plotdiagrams):
             time_between_pelvis_maxima=0
             range_degrees=0
             chin_to_chest_times=0
+            per_rep_rom_degrees = []
+            per_rep_start_times_s = []
+            per_rep_end_times_s = []
+            per_rep_time_to_peak_flexion_s = []
+            per_rep_time_return_s = []
+            per_rep_hold_duration_s = []
+            mean_velocity = 0.0
+            std_velocity = 0.0
+            smoothness_jerk_index = 0.0
+            angular_velocity_time_series = []
     
     total_duration_seconds = (df_Limu1.index[-1] - df_Limu1.index[0]).total_seconds()
 
-    metrics_data = {   
+    metrics_data = {
         "total_metrics": {
             "number_of_movements": len(pelvis_maxima_filtered),
             "movement_mean_time": np.mean(time_between_pelvis_maxima),
@@ -360,8 +427,18 @@ def getMetricsSeatingOld03(Limu1, Limu2, plotdiagrams):
             "chin_to_chest_std_time": np.std(chin_to_chest_times),
             "chest_to_chin_mean_time": np.mean(chest_to_chin_times),
             "chest_to_chin_std_time": np.std(chest_to_chin_times),
-            "exercise_duration_seconds": total_duration_seconds
-        }
+            "exercise_duration_seconds": total_duration_seconds,
+            "angular_velocity_mean_deg_per_s": mean_velocity,
+            "angular_velocity_std_deg_per_s": std_velocity,
+            "smoothness_jerk_index": smoothness_jerk_index
+        },
+        "per_rep_rom_degrees": per_rep_rom_degrees,
+        "per_rep_start_times_s": per_rep_start_times_s,
+        "per_rep_end_times_s": per_rep_end_times_s,
+        "per_rep_time_to_peak_flexion_s": per_rep_time_to_peak_flexion_s,
+        "per_rep_time_return_s": per_rep_time_return_s,
+        "per_rep_hold_duration_s": per_rep_hold_duration_s,
+        "angular_velocity_time_series": angular_velocity_time_series
     }
 
     print(metrics_data)
