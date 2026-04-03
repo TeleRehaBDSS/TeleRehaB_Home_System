@@ -230,6 +230,28 @@ def get_metrics(imu1,imu2,imu3,imu4, counter):
         returnedJson = getMetricsStandingNew02(Limu2, False) 
         return returnedJson
 
+def rom_directions_std_from_euler(roll_deg, pitch_deg):
+    """Compute per-direction STD of ROM peaks (degrees) for radar/spider plots."""
+    roll_arr = np.asarray(roll_deg, dtype=float)
+    pitch_arr = np.asarray(pitch_deg, dtype=float)
+    roll_arr = roll_arr[np.isfinite(roll_arr)]
+    pitch_arr = pitch_arr[np.isfinite(pitch_arr)]
+
+    def _peak_std(signal, prominence=2.0):
+        if len(signal) < 3:
+            return 0.0
+        peaks, _ = find_peaks(signal, prominence=prominence)
+        if len(peaks) >= 2:
+            return float(np.std(signal[peaks], ddof=1))
+        return 0.0
+
+    return {
+        "forward": _peak_std(pitch_arr),
+        "backward": _peak_std(-pitch_arr),
+        "right": _peak_std(roll_arr),
+        "left": _peak_std(-roll_arr)
+    }
+
 def getMetricsStandingNew02(Limu2, plotdiagrams):
     columns = ['Timestamp', 'elapsed(time)', 'W(number)', 'X(number)', 'Y (number)', 'Z (number)']
     df_Limu2 = pd.DataFrame(Limu2, columns=columns)
@@ -267,7 +289,11 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
     significant_movements = []
     durations = []
     amplitudes = []
-    
+
+    # Euler angles for real-degree amplitude computation
+    roll_arr = df_Limu2['Roll'].to_numpy()
+    pitch_arr = df_Limu2['Pitch'].to_numpy()
+
     exercise_duration = (df_Limu2.index[-1] - df_Limu2.index[0]).total_seconds()
 
     for i in range(1, len(movements)):
@@ -277,7 +303,10 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
         # Separate movements based on type
         if (start_type == 'trough' and end_type == 'peak') or (start_type == 'peak' and end_type == 'trough'):
             time_diff = (df_Limu2.index[end_idx] - df_Limu2.index[start_idx]).total_seconds()
-            amplitude_diff = abs(smoothed_y[end_idx] - smoothed_y[start_idx])
+            # Real degree amplitude: Euclidean angular displacement (roll + pitch)
+            roll_diff = abs(float(roll_arr[end_idx]) - float(roll_arr[start_idx]))
+            pitch_diff = abs(float(pitch_arr[end_idx]) - float(pitch_arr[start_idx]))
+            amplitude_diff = float(np.sqrt(roll_diff**2 + pitch_diff**2))
             significant_movements.append({
                 'Movement': f'Movement {len(significant_movements) + 1}',
                 'Time Difference (s)': time_diff,
@@ -298,7 +327,8 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
                 "std_duration_seconds": 0.0,
                 "exercise_duration_seconds": exercise_duration
             },
-            "rom_directions_degrees": rom_directions_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy())
+            "rom_directions_degrees": rom_directions_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy()),
+            "rom_directions_degrees_std": rom_directions_std_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy())
         }
         print(metrics_data)
         datetime_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -340,7 +370,8 @@ def getMetricsStandingNew02(Limu2, plotdiagrams):
             "std_duration_seconds": std_duration_seconds,
             "exercise_duration_seconds": exercise_duration
         },
-        "rom_directions_degrees": rom_dirs  # for spider/radar plotting
+        "rom_directions_degrees": rom_dirs,
+        "rom_directions_degrees_std": rom_directions_std_from_euler(df_Limu2['Roll'].to_numpy(), df_Limu2['Pitch'].to_numpy())
     }
 
     print(metrics_data)
