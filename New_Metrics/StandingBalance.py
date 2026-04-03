@@ -244,9 +244,37 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
     std_combined_range = np.std(filtered_combined_ranges, ddof=1)  # ddof=1 for sample standard deviation
 
     mean_duration = np.mean(movement_durations)
-    std_duration = np.std(movement_durations, ddof=1)  # ddof=1 for sample standard deviation    
+    std_duration = np.std(movement_durations, ddof=1)  # ddof=1 for sample standard deviation
 
-    # sway_range = max(combined_movement_ranges) - min(combined_movement_ranges) if combined_movement_ranges >= 4 else -1
+    # --- sway metrics from Euler roll/pitch (real degrees) ---
+    t0_dt = df_Limu2.index[0]
+    t_sec_sway = np.array([(ts - t0_dt).total_seconds() for ts in df_Limu2.index])
+    roll_deg = euler_angles_degrees2[:, 0]
+    pitch_deg = euler_angles_degrees2[:, 1]
+
+    d_roll = np.diff(roll_deg)
+    d_pitch = np.diff(pitch_deg)
+    sway_path_length_deg = float(np.sum(np.sqrt(d_roll ** 2 + d_pitch ** 2)))
+
+    roll_std = float(np.std(roll_deg, ddof=1)) if len(roll_deg) >= 2 else 0.0
+    pitch_std = float(np.std(pitch_deg, ddof=1)) if len(pitch_deg) >= 2 else 0.0
+    sway_ellipse_area_deg2 = float(np.pi * 1.96 * roll_std * 1.96 * pitch_std)
+
+    if len(t_sec_sway) > 1:
+        roll_vel = np.gradient(roll_deg, t_sec_sway)
+        pitch_vel = np.gradient(pitch_deg, t_sec_sway)
+        sway_velocity = np.sqrt(roll_vel ** 2 + pitch_vel ** 2)
+        sway_velocity_mean_deg_per_s = float(np.mean(sway_velocity))
+        sway_velocity_std_deg_per_s = float(np.std(sway_velocity, ddof=1)) if len(sway_velocity) >= 2 else 0.0
+    else:
+        sway_velocity_mean_deg_per_s = 0.0
+        sway_velocity_std_deg_per_s = 0.0
+
+    step_ts = max(1, len(t_sec_sway) // 200)
+    sway_time_series = [
+        {"time_s": float(t_sec_sway[k]), "roll_deg": float(roll_deg[k]), "pitch_deg": float(pitch_deg[k])}
+        for k in range(0, len(t_sec_sway), step_ts)
+    ]
 
     metrics_data = {
         "total_metrics": {
@@ -256,8 +284,15 @@ def getMetricsStandingNew01(Limu2, plotdiagrams):
             "std_range_degrees": float(std_combined_range),
             "mean_duration_seconds": float(mean_duration),
             "std_duration_seconds": float(std_duration),
-            "exercise_duration_seconds" : total_duration_seconds
-        }
+            "exercise_duration_seconds": total_duration_seconds,
+            "sway_path_length_deg": sway_path_length_deg,
+            "sway_ellipse_area_deg2": sway_ellipse_area_deg2,
+            "sway_velocity_mean_deg_per_s": sway_velocity_mean_deg_per_s,
+            "sway_velocity_std_deg_per_s": sway_velocity_std_deg_per_s,
+            "roll_std_deg": roll_std,
+            "pitch_std_deg": pitch_std
+        },
+        "sway_time_series": sway_time_series
     }
     print(metrics_data)
     datetime_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
