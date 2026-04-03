@@ -329,24 +329,76 @@ def getMetricsStandingNew01(Limu2, Limu3, Limu4, plotdiagrams):
     mean_duration_right = np.mean(right_durations) if right_durations else 0
     std_duration_right = np.std(right_durations) if right_durations else 0
     total_duration_seconds = (df_Limu3.index[-1] - df_Limu3.index[0]).total_seconds()
+
+    # --- per-step timestamps (seconds from exercise start) ---
+    t0_limu3 = df_Limu3.index[0]
+    left_step_times_s = [float((df_Limu3.index[m] - t0_limu3).total_seconds()) for m in left_movements]
+    t0_limu4 = df_Limu4.index[0]
+    right_step_times_s = [float((df_Limu4.index[m] - t0_limu4).total_seconds()) for m in right_movements]
+
+    # --- ankle roll ROM from foot quaternions (Euler, real degrees) ---
+    def _ankle_roll_metrics(df_foot):
+        try:
+            q = df_foot[['X(number)', 'Y (number)', 'Z (number)', 'W(number)']].to_numpy()
+            euler = R.from_quat(q).as_euler('xyz', degrees=True)
+            roll = euler[:, 0]
+            return {
+                "roll_max_deg": float(np.max(np.abs(roll))) if len(roll) > 0 else 0.0,
+                "roll_range_deg": float(np.ptp(roll)) if len(roll) > 0 else 0.0,
+                "roll_std_deg": float(np.std(roll, ddof=1)) if len(roll) >= 2 else 0.0,
+            }
+        except Exception:
+            return {"roll_max_deg": 0.0, "roll_range_deg": 0.0, "roll_std_deg": 0.0}
+
+    left_ankle_rom = _ankle_roll_metrics(df_Limu3)
+    right_ankle_rom = _ankle_roll_metrics(df_Limu4)
+
+    # --- pelvis sway from Limu2 (roll + pitch in real degrees) ---
+    pelvis_roll_std_deg = 0.0
+    pelvis_pitch_std_deg = 0.0
+    pelvis_roll_range_deg = 0.0
+    pelvis_pitch_range_deg = 0.0
+    try:
+        q_pelvis = df_Limu2[['X(number)', 'Y (number)', 'Z (number)', 'W(number)']].to_numpy()
+        euler_pelvis = R.from_quat(q_pelvis).as_euler('xyz', degrees=True)
+        if len(euler_pelvis) >= 2:
+            pelvis_roll_std_deg = float(np.std(euler_pelvis[:, 0], ddof=1))
+            pelvis_pitch_std_deg = float(np.std(euler_pelvis[:, 1], ddof=1))
+            pelvis_roll_range_deg = float(np.ptp(euler_pelvis[:, 0]))
+            pelvis_pitch_range_deg = float(np.ptp(euler_pelvis[:, 1]))
+    except Exception:
+        pass
+
     # Calculate metrics separately for each foot
     metrics_data = {
         "total_metrics": {
+            "pelvis_roll_std_deg": pelvis_roll_std_deg,
+            "pelvis_pitch_std_deg": pelvis_pitch_std_deg,
+            "pelvis_roll_range_deg": pelvis_roll_range_deg,
+            "pelvis_pitch_range_deg": pelvis_pitch_range_deg,
             "LEFT LEG": {
                 "number_of_movements": num_left_movements,
                 "pace_movements_per_second": pace_left,
                 "mean_duration_seconds": mean_duration_left,
                 "std_duration_seconds": std_duration_left,
-                "exercise_duration_seconds": total_duration_seconds
+                "exercise_duration_seconds": total_duration_seconds,
+                "ankle_roll_max_deg": left_ankle_rom["roll_max_deg"],
+                "ankle_roll_range_deg": left_ankle_rom["roll_range_deg"],
+                "ankle_roll_std_deg": left_ankle_rom["roll_std_deg"],
             },
             "RIGHT LEG": {
                 "number_of_movements": num_right_movements,
                 "pace_movements_per_second": pace_right,
                 "mean_duration_seconds": mean_duration_right,
                 "std_duration_seconds": std_duration_right,
-                "exercise_duration_seconds": total_duration_seconds
+                "exercise_duration_seconds": total_duration_seconds,
+                "ankle_roll_max_deg": right_ankle_rom["roll_max_deg"],
+                "ankle_roll_range_deg": right_ankle_rom["roll_range_deg"],
+                "ankle_roll_std_deg": right_ankle_rom["roll_std_deg"],
             }
-        }
+        },
+        "left_step_times_s": left_step_times_s,
+        "right_step_times_s": right_step_times_s,
     }
 
     print(metrics_data)
@@ -374,9 +426,16 @@ def save_metrics_to_txt(metrics, file_path):
     with open(full_path, 'w') as file:
         for main_key, main_value in metrics.items():
             file.write(f"{main_key}:\n")
-            for key, value in main_value.items():
-                file.write(f"  {key}:\n")
-                for sub_key, sub_value in value.items():
-                    file.write(f"    {sub_key}: {sub_value}\n")
-                file.write("\n") 
+            if isinstance(main_value, dict):
+                for key, value in main_value.items():
+                    if isinstance(value, dict):
+                        file.write(f"  {key}:\n")
+                        for sub_key, sub_value in value.items():
+                            file.write(f"    {sub_key}: {sub_value}\n")
+                    else:
+                        file.write(f"  {key}: {value}\n")
+                file.write("\n")
+            else:
+                file.write(f"  {main_value}\n")
+            file.write("\n")
         
